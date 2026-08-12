@@ -1,0 +1,57 @@
+name: Build Android APK
+
+# Corre automático en cada push a main, y también se puede lanzar a mano
+# desde la pestaña "Actions" de GitHub (botón "Run workflow") sin necesitar
+# hacer un push — útil para generar un build de prueba sin cambiar nada.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Java (lo exige el build de Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Instalar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias (npm)
+        run: npm install
+
+      - name: Sincronizar Capacitor con el proyecto Android
+        run: npx cap sync android
+
+      - name: Dar permiso de ejecución a gradlew
+        # A veces se pierde el permiso de ejecución al subir el proyecto a
+        # GitHub — este paso lo asegura siempre, sin costo si ya lo tenía.
+        run: chmod +x android/gradlew
+
+      - name: Compilar el APK de depuración
+        # "assembleDebug" genera un APK que se puede instalar directo en el
+        # celular sin necesidad de la firma paga de Google Play — perfecto
+        # para las pruebas en el Samsung. Para subir a Play Store más
+        # adelante hace falta un paso extra de firma (bundleRelease +
+        # keystore), que se agrega cuando llegue ese momento, no ahora.
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Dejar el APK descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: chilliapp-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
