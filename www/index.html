@@ -7423,7 +7423,8 @@ nativa empaquetada con Capacitor, no en el navegador). -->
   <div id="chilliCamPreview" style="display:none;position:absolute;inset:0;background:#000;z-index:2;flex-direction:column;">
     <video id="chilliCamVideoEl" playsinline onclick="this.paused?this.play():this.pause()" style="width:100%;flex:1;object-fit:contain;background:#000;"></video>
     <div style="display:flex;gap:10px;justify-content:center;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));flex-wrap:wrap;">
-      <button onclick="chilliCamGuardar()" style="display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:#fff;border:none;border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">⬇️ Guardar / compartir</button>
+      <button onclick="chilliCamGuardar()" style="display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:#fff;border:none;border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">💾 Guardar en galería</button>
+      <button onclick="chilliCamCompartir()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">📤 Compartir</button>
       <button onclick="chilliCamRegrabar()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">🔄 Grabar de nuevo</button>
       <button onclick="chilliCamCerrar()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">✕ Cerrar</button>
     </div>
@@ -7434,7 +7435,7 @@ nativa empaquetada con Capacitor, no en el navegador). -->
 // Controlador de la pantalla de grabación nativa — usa window.ChilliCamera
 // (definido por chilliapp-camera.js, ver arriba). Todo async/await porque el
 // puente de Capacitor es 100% basado en promesas.
-var chilliCamScrollInterval=null, chilliCamVelocidadActual=32, chilliCamGrabando=false, chilliCamUltimoResultado=null;
+var chilliCamScrollRAF=null, chilliCamVelocidadActual=32, chilliCamGrabando=false, chilliCamUltimoResultado=null;
 
 // Punto de entrada único desde el botón "Grabar" del guion — decide entre la
 // pantalla nativa con overlay (app empaquetada) o el respaldo de cámara del
@@ -7455,7 +7456,7 @@ function iniciarGrabacion(){
 // cual, aunque venga de la IA) y recién ahí envuelve los corchetes.
 function chilliCamFormatearGuion(texto){
   var esc=String(texto||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return esc.replace(/\[([^\]]*)\]/g,'<span style="font-size:.6em;font-weight:500;opacity:.7;">[$1]</span>');
+  return esc.replace(/\[([^\]]*)\]/g,'<span style="font-size:.5em;font-weight:500;font-style:italic;color:#fbbf24;text-shadow:0 1px 4px rgba(0,0,0,.9);">[$1]</span>');
 }
 
 function chilliCamFondoTransparente(activar){
@@ -7503,12 +7504,29 @@ async function abrirCamaraTeleprompter(){
 }
 
 function chilliCamEmpezarScroll(){
-  clearInterval(chilliCamScrollInterval);
-  chilliCamScrollInterval=setInterval(function(){
-    if(!chilliCamGrabando)return; // el guion solo avanza mientras se está grabando, igual que el teleprompter anterior
-    var box=document.getElementById('chilliCamGuion');
-    if(box)box.scrollTop+=1;
-  },Math.max(10,60-chilliCamVelocidadActual));
+  // BUG anterior: setInterval fija su demora UNA sola vez al crearse — cambiar
+  // chilliCamVelocidadActual después no lo actualizaba, por eso mover
+  // tortuga/conejo no cambiaba nada en la práctica. requestAnimationFrame en
+  // cambio lee la velocidad actual en cada cuadro, así el cambio se nota al
+  // toque, sin tener que destruir y recrear ningún temporizador.
+  cancelAnimationFrame(chilliCamScrollRAF);
+  var ultimo=null;
+  function paso(t){
+    if(!document.getElementById('chilliCamScreen')||document.getElementById('chilliCamScreen').style.display==='none')return;
+    if(chilliCamGrabando){
+      if(ultimo===null)ultimo=t;
+      var dt=t-ultimo;
+      ultimo=t;
+      var box=document.getElementById('chilliCamGuion');
+      // chilliCamVelocidadActual va de 5 (lento) a 55 (rápido) — se traduce
+      // a píxeles por segundo, leído fresco en cada cuadro.
+      if(box)box.scrollTop+=(chilliCamVelocidadActual*0.6)*(dt/1000);
+    }else{
+      ultimo=null;
+    }
+    chilliCamScrollRAF=requestAnimationFrame(paso);
+  }
+  chilliCamScrollRAF=requestAnimationFrame(paso);
 }
 
 function chilliCamVelocidad(delta){
@@ -7543,6 +7561,14 @@ async function chilliCamToggleGrabar(){
 async function chilliCamGuardar(){
   if(!chilliCamUltimoResultado)return;
   try{
+    await window.ChilliCamera.guardarEnGaleria(chilliCamUltimoResultado.ruta);
+    showToast('Video guardado en tu galería ✓ (álbum "ChilliApp")');
+  }catch(e){showToast('No se pudo guardar en la galería: '+e.message);}
+}
+
+async function chilliCamCompartir(){
+  if(!chilliCamUltimoResultado)return;
+  try{
     await window.ChilliCamera.guardarOCompartir(chilliCamUltimoResultado.ruta);
   }catch(e){showToast('No se pudo compartir: '+e.message);}
 }
@@ -7559,7 +7585,7 @@ async function chilliCamCambiarCamara(){
 }
 
 async function chilliCamCerrar(){
-  clearInterval(chilliCamScrollInterval);
+  cancelAnimationFrame(chilliCamScrollRAF);
   chilliCamGrabando=false;
   chilliCamFondoTransparente(false);
   try{await window.ChilliCamera.detener(true);}catch(e){}
