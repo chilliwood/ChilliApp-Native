@@ -7448,10 +7448,27 @@ function iniciarGrabacion(){
 }
 
 function chilliCamFondoTransparente(activar){
-  // El overlay de HTML solo se ve "encima" de la cámara si TODO el fondo del
-  // WebView es transparente, no solo el div de esta pantalla — la cámara
-  // nativa se compone por debajo del WebView completo (toBack:true), no
-  // detrás de un elemento puntual.
+  // Ocultar de verdad el resto de la app mientras la cámara está abierta —
+  // antes solo se ponía el fondo en "transparent" y se confiaba en que la
+  // cámara nativa se viera detrás, pero si esa composición falla (pasa en
+  // algunos teléfonos — el plugin de cámara solo tiene un ajuste especial
+  // para Xiaomi/Huawei/Honor, no para todas las marcas), el resultado era
+  // seguir viendo la pantalla anterior mezclada con los controles de la
+  // cámara, muy confuso. Ahora, ocultando de verdad todo lo demás, si la
+  // cámara no aparece vas a ver una pantalla en blanco/negra en vez de la
+  // app de fondo — eso confirma de forma clara si el problema es la cámara
+  // en sí, no esta pantalla.
+  var scr=document.getElementById('chilliCamScreen');
+  Array.prototype.forEach.call(document.body.children,function(el){
+    if(el===scr||el.tagName==='SCRIPT')return;
+    if(activar){
+      if(el.dataset.chilliCamPrevDisplay===undefined)el.dataset.chilliCamPrevDisplay=el.style.display||'';
+      el.style.display='none';
+    }else if(el.dataset.chilliCamPrevDisplay!==undefined){
+      el.style.display=el.dataset.chilliCamPrevDisplay;
+      delete el.dataset.chilliCamPrevDisplay;
+    }
+  });
   document.documentElement.style.background=activar?'transparent':'';
   document.body.style.background=activar?'transparent':'';
 }
