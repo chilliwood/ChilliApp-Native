@@ -22,6 +22,7 @@
 
 import { CameraPreview } from '@capgo/camera-preview';
 import { Share } from '@capacitor/share';
+import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
 
 // enableVideoMode:true es obligatorio en Android para poder grabar video
@@ -102,16 +103,32 @@ async function estaCorriendo() {
 }
 
 // No hay una opción nativa de "guardar video en galería" para grabación de
-// video en este plugin (sí existe para fotos, pero no para video) — se usa
-// el panel nativo de compartir/guardar del sistema en su lugar, mismo
-// resultado práctico para el usuario (puede elegir "Guardar en Fotos",
-// "Guardar en Archivos", enviarlo a otra app, etc.), sin pelear con permisos
-// de almacenamiento por versión de Android.
+// video en este plugin de cámara (sí existe para fotos, pero no para video)
+// — se usa @capacitor-community/media para eso, que guarda videos directo en
+// un álbum propio de la app sin pedir permisos amplios de almacenamiento
+// (ChilliApp no necesita ver toda la galería, solo escribir en su propio
+// álbum "ChilliApp").
+let _chilliAlbumId = null;
+async function obtenerOAgregarAlbum() {
+  if (_chilliAlbumId) return _chilliAlbumId;
+  const { albums } = await Media.getAlbums();
+  const existente = (albums || []).find(a => a.name === 'ChilliApp');
+  if (existente) { _chilliAlbumId = existente.identifier; return _chilliAlbumId; }
+  await Media.createAlbum({ name: 'ChilliApp' });
+  const { albums: albumsNuevo } = await Media.getAlbums();
+  const creado = (albumsNuevo || []).find(a => a.name === 'ChilliApp');
+  _chilliAlbumId = creado ? creado.identifier : undefined;
+  return _chilliAlbumId;
+}
+async function guardarEnGaleria(rutaVideo) {
+  const albumIdentifier = await obtenerOAgregarAlbum();
+  return await Media.saveVideo({ path: rutaVideo, albumIdentifier, fileName: 'chilliapp-' + Date.now() });
+}
 async function guardarOCompartir(rutaVideo) {
   await Share.share({
     title: 'Video grabado en ChilliApp',
     url: rutaVideo,
-    dialogTitle: 'Guardar o compartir tu video'
+    dialogTitle: 'Compartir tu video'
   });
 }
 
@@ -123,5 +140,6 @@ window.ChilliCamera = {
   detener,
   cambiarCamara,
   estaCorriendo,
+  guardarEnGaleria,
   guardarOCompartir
 };
