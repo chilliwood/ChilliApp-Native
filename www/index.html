@@ -7450,6 +7450,11 @@ nativa empaquetada con Capacitor, no en el navegador). -->
       <button onclick="chilliCamCerrar()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">✕ Cerrar</button>
     </div>
   </div>
+  <div id="chilliCamExito" style="display:none;position:absolute;inset:0;z-index:5;background:rgba(0,0,0,.85);flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+    <div style="width:84px;height:84px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:44px;">✓</div>
+    <div style="color:#fff;font-size:19px;font-weight:800;">¡Guardado en tu galería!</div>
+    <div style="color:rgba(255,255,255,.65);font-size:13px;">Álbum "ChilliApp"</div>
+  </div>
 </div>
 
 <script>
@@ -7463,23 +7468,6 @@ var chilliCamScrollRAF=null, chilliCamVelocidadActual=32, chilliCamGrabando=fals
 // sistema (versión web/PWA en navegador), sin que el resto de la app tenga
 // que saber cuál de las dos está disponible.
 function iniciarGrabacion(){
-  // DIAGNÓSTICO TEMPORAL — alert() bloquea la ejecución y no depende de
-  // ningún CSS/z-index/panel que se pueda tapar u ocultar, a diferencia del
-  // panel 🐛 (que además nunca llega a llenarse si cae al plan B, porque esa
-  // rama del código ni se acerca a abrirCamaraTeleprompter). Quitar este
-  // bloque una vez que quede claro por qué a veces cae al plan B.
-  var estado=
-    'window.Capacitor existe: '+(typeof window.Capacitor!=='undefined')+'\n'+
-    'isNativePlatform(): '+(window.Capacitor&&window.Capacitor.isNativePlatform?window.Capacitor.isNativePlatform():'(función no existe)')+'\n'+
-    'getPlatform(): '+(window.Capacitor&&window.Capacitor.getPlatform?window.Capacitor.getPlatform():'(función no existe)')+'\n'+
-    'window.ChilliCamera existe: '+(typeof window.ChilliCamera!=='undefined')+'\n'+
-    'Funciones en ChilliCamera: '+(window.ChilliCamera?Object.keys(window.ChilliCamera).join(', '):'(no aplica)')+'\n'+
-    '--- carga de chilliapp-camera.js ---\n'+
-    'Script cargó (onload disparó): '+(window.__chilliScriptLoaded===true)+'\n'+
-    'Script falló al cargar (onerror disparó): '+(window.__chilliScriptLoadFailed===true)+'\n'+
-    'Errores capturados desde el inicio de la página: '+(window.__chilliEarlyErrors&&window.__chilliEarlyErrors.length?('\n'+window.__chilliEarlyErrors.join('\n')):'ninguno');
-  alert('DIAGNÓSTICO:\n\n'+estado);
-
   if(window.ChilliCamera&&window.ChilliCamera.disponible()){
     abrirCamaraTeleprompter();
   }else{
@@ -7673,7 +7661,12 @@ async function chilliCamGuardar(){
       new Promise(function(_,reject){setTimeout(function(){reject(new Error('Tiempo de espera agotado (10s)'));},10000);})
     ]);
     chilliCamLog('Guardar: OK. Resultado: '+JSON.stringify(resultado));
-    showToast('Video guardado en tu galería ✓ (álbum "ChilliApp")');
+    // El toast de 3 segundos es fácil de perderse en esta pantalla — un
+    // aviso grande, imposible de no ver, y cerrar solo después es más claro
+    // que dejar a la persona adivinando si de verdad se guardó.
+    var exito=document.getElementById('chilliCamExito');
+    if(exito)exito.style.display='flex';
+    setTimeout(chilliCamCerrar,1800);
   }catch(e){chilliCamLog('Guardar: ERROR — '+(e&&e.message)+(e&&e.code?' (code:'+e.code+')':''));showToast('No se pudo guardar en la galería: '+e.message);}
 }
 
