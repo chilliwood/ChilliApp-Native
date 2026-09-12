@@ -7,7 +7,11 @@ android {
         applicationId "cl.chilliwood.chilliapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // 1 y 2 ya los usó el TWA subido antes a Play Console (mismo app,
+        // mismo Package Name) — este build tiene que usar un número más
+        // alto o Play Console lo rechaza con "ya se usó el código de la
+        // versión X". Subir este número en cada versión futura que subas.
+        versionCode 3
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,8 +20,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Firma de release — nunca hay contraseñas ni rutas de llave escritas
+    // acá. Todo viene de variables de entorno que solo existen dentro del
+    // run de GitHub Actions (ver build-android.yml), armadas a partir de
+    // secretos del repo. Si corres bundleRelease en tu propia máquina sin
+    // esas variables puestas, esto queda vacío y la compilación de release
+    // falla al firmar — es el comportamiento esperado, no un bug.
+    signingConfigs {
+        release {
+            storeFile file("release.keystore")
+            storePassword System.getenv("RELEASE_STORE_PASSWORD")
+            keyAlias System.getenv("RELEASE_KEY_ALIAS")
+            keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
