@@ -43,9 +43,8 @@ jobs:
       - name: Compilar el APK de depuración
         # "assembleDebug" genera un APK que se puede instalar directo en el
         # celular sin necesidad de la firma paga de Google Play — perfecto
-        # para las pruebas en el Samsung. Para subir a Play Store más
-        # adelante hace falta un paso extra de firma (bundleRelease +
-        # keystore), que se agrega cuando llegue ese momento, no ahora.
+        # para las pruebas en el Samsung. Se mantiene igual que siempre,
+        # para no interrumpir las pruebas con amigos.
         working-directory: android
         run: ./gradlew assembleDebug
 
@@ -54,4 +53,27 @@ jobs:
         with:
           name: chilliapp-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Restaurar la llave de firma desde el secreto
+        # El keystore vive codificado en base64 dentro del secreto
+        # KEYSTORE_BASE64 (nunca en texto plano en el repo). Este paso lo
+        # decodifica de vuelta a un archivo real, solo dentro de este run —
+        # nunca se guarda ni se sube a ningún lado.
+        working-directory: android/app
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+      - name: Compilar el AAB firmado para Play Store
+        working-directory: android
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+
+      - name: Dejar el AAB descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: chilliapp-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
