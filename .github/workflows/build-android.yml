@@ -32,6 +32,13 @@ jobs:
       - name: Instalar dependencias (npm)
         run: npm install
 
+      - name: Regenerar íconos de Android desde assets/icon.png
+        # @capacitor/assets genera automáticamente las 5 resoluciones que
+        # pide Android (mdpi a xxxhdpi) a partir de una sola imagen fuente.
+        # Si assets/icon.png no existe todavía, este paso no rompe el build
+        # — solo deja los íconos genéricos de siempre hasta que se agregue.
+        run: npx @capacitor/assets generate --android || echo "assets/icon.png no encontrado — se mantienen los íconos actuales"
+
       - name: Sincronizar Capacitor con el proyecto Android
         run: npx cap sync android
 
@@ -59,9 +66,23 @@ jobs:
         # El keystore vive codificado en base64 dentro del secreto
         # KEYSTORE_BASE64 (nunca en texto plano en el repo). Este paso lo
         # decodifica de vuelta a un archivo real, solo dentro de este run —
-        # nunca se guarda ni se sube a ningún lado.
+        # nunca se guarda ni se sube a ningún lado. "tr -d" limpia espacios
+        # y saltos de línea que a veces se cuelan al copiar un string tan
+        # largo a mano — sin esto, un solo carácter de más corrompe el
+        # binario del keystore de forma silenciosa.
         working-directory: android/app
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 -d > release.keystore
+
+      - name: Verificar que la llave quedó bien ANTES de compilar
+        # Falla rápido y con un mensaje legible (keytool) en vez de esperar
+        # 3 minutos de compilación para recién enterarnos, enterrado en un
+        # error críptico de Gradle/bundletool, de que el keystore llegó
+        # corrupto o la contraseña/alias no calzan.
+        working-directory: android/app
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: keytool -list -keystore release.keystore -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS"
 
       - name: Compilar el AAB firmado para Play Store
         working-directory: android
