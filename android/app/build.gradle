@@ -11,7 +11,7 @@ android {
         // mismo Package Name) — este build tiene que usar un número más
         // alto o Play Console lo rechaza con "ya se usó el código de la
         // versión X". Subir este número en cada versión futura que subas.
-        versionCode 4
+        versionCode 5
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
