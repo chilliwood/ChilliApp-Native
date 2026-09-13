@@ -1303,6 +1303,7 @@ async function installApp(){
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Más</div>
       <button class="side-item" onclick="goSideTab('marca')">🎨 Marca</button>
       <button class="side-item" onclick="goSideTab('negocio')">🏢 Mi negocio</button>
+      <button class="side-item" onclick="closeSideMenu();contactarSoporte();">💬 Contacto</button>
 
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Cuenta</div>
       <button class="side-item" onclick="closeSideMenu();openAccounts();">👤 Cambiar de cuenta</button>
@@ -1332,11 +1333,13 @@ async function installApp(){
         <div id="ctx-tema" class="f" style="margin-bottom:0;">
           <label style="font-size:10px;">Tema</label>
           <select id="tema"><option value="">— Selecciona un tema —</option></select>
+          <input type="text" id="tema-otro" placeholder="Escribe tu tema..." style="display:none;margin-top:6px;">
         </div>
         <!-- Campo de Producto (visible cuando contexto = producto o ambos) -->
         <div id="ctx-producto" style="display:none;" class="f" style="margin-bottom:0;">
           <label style="font-size:10px;">Producto / Servicio</label>
           <select id="producto"><option value="">— Selecciona producto —</option></select>
+          <input type="text" id="producto-otro" placeholder="Escribe tu producto o servicio..." style="display:none;margin-top:6px;">
         </div>
       </div>
 
@@ -1480,7 +1483,8 @@ async function installApp(){
         <button class="btn btn-sm" onclick="document.getElementById('car-img-input').click()" style="width:100%;border-style:dashed;">+ Agregar imágenes</button>
       </div>
 
-      <div class="f"><label>Tema del carrusel</label><select id="car-tema"><option value="">— Selecciona un tema —</option></select></div>
+      <div class="f"><label>Tema del carrusel</label><select id="car-tema"><option value="">— Selecciona un tema —</option></select>
+        <input type="text" id="car-tema-otro" placeholder="Escribe tu tema..." style="display:none;margin-top:6px;"></div>
       <div class="g2">
         <div class="f">
           <label>Slides</label>
@@ -2088,6 +2092,12 @@ function contactarUpgrade(){
   var planActual=PLAN_LIMITS[cfg.plan||'gratis'].label;
   var msg=encodeURIComponent('Hola Chilliwood, estoy en el plan '+planActual+' de ChilliApp y quiero saber sobre subir de plan.');
   window.open('https://wa.me/56998013008?text='+msg,'_blank');
+}
+// Correo de contacto (no WhatsApp) para el botón del menú lateral — a
+// diferencia del de "subir de plan" (más puntual), este queda siempre
+// visible y puede recibir más volumen, mejor que le llegue a un correo.
+function contactarSoporte(){
+  window.open('mailto:contacto@chilliwood.cl?subject='+encodeURIComponent('Consulta desde ChilliApp'),'_blank');
 }
 let lastR=null, lastS=null;
 let sbClient=null, sbCid=null, sbToken=null;
@@ -3322,6 +3332,10 @@ function fillSelects(){
     });
   });
   if(tv)te.value=tv;
+  var otroTemaOpt=document.createElement('option');
+  otroTemaOpt.value='__otro_tema__';
+  otroTemaOpt.textContent='✏️ Otro (escribir tema)';
+  te.appendChild(otroTemaOpt);
   // Fill selects with new params
   var tipoOpts=['Visibilidad','Confianza','Conversión'];
   var ganchoOpts=['Masivo','Interesados','Nicho'];
@@ -3347,6 +3361,10 @@ function fillSelects(){
       var nombre=typeof p==='object'?p.nombre:p;
       var o=document.createElement('option');o.value=o.textContent=nombre;prodEl.appendChild(o);
     });
+    var otroProdOpt=document.createElement('option');
+    otroProdOpt.value='__otro_producto__';
+    otroProdOpt.textContent='✏️ Otro (escribir producto/servicio)';
+    prodEl.appendChild(otroProdOpt);
   }
 }
 function renderAll(){renderVideos();renderInsights();renderYTPanel();renderIGPanel();renderTTPanel();}
@@ -4458,10 +4476,65 @@ function mkPrompt(v){
     +'Escribe SOLO el guión con los títulos de sección, sin explicaciones adicionales.';
 }
 function showMsg(t,c){const m=document.getElementById('fmsg');m.textContent=t;m.style.color=c||'var(--tx2)';m.style.display='block';}
+// Opción "Otro" en Tema/Producto — muestra el input de texto libre cuando se
+// elige, y lo oculta (limpiando lo escrito) si se vuelve a elegir algo de la
+// lista real. Los selects ya existen en el HTML estático, así que esto se
+// puede enganchar una sola vez, sin depender de que fillSelects() ya corrió.
+(function initOtroToggles(){
+  var temaSel=document.getElementById('tema'),temaInput=document.getElementById('tema-otro');
+  var prodSel=document.getElementById('producto'),prodInput=document.getElementById('producto-otro');
+  if(temaSel&&temaInput)temaSel.addEventListener('change',function(){
+    var es=temaSel.value==='__otro_tema__';
+    temaInput.style.display=es?'block':'none';
+    if(!es)temaInput.value='';
+  });
+  if(prodSel&&prodInput)prodSel.addEventListener('change',function(){
+    var es=prodSel.value==='__otro_producto__';
+    prodInput.style.display=es?'block':'none';
+    if(!es)prodInput.value='';
+  });
+  var carTemaSel=document.getElementById('car-tema'),carTemaInput=document.getElementById('car-tema-otro');
+  if(carTemaSel&&carTemaInput)carTemaSel.addEventListener('change',function(){
+    var es=carTemaSel.value==='__otro_tema_car__';
+    carTemaInput.style.display=es?'block':'none';
+    if(!es)carTemaInput.value='';
+  });
+})();
+// Igual que guardarOtroTema, pero para tema/producto de ChilliSketch y de
+// Carrusel a la vez — recibe qué select/input revisar, así una sola función
+// sirve para los dos formularios sin repetir la lógica de guardado.
+async function guardarOtroTema(selId,inputId,sentinel){
+  var sel=document.getElementById(selId),inp=document.getElementById(inputId);
+  if(sel&&sel.value===sentinel&&inp&&inp.value.trim()){
+    var v=inp.value.trim();
+    cfg.temas=cfg.temas||[];
+    var catOtro=cfg.temas.find(function(c){return c.cat==='Otro';});
+    if(!catOtro){catOtro={cat:'Otro',items:[]};cfg.temas.push(catOtro);}
+    catOtro.items=catOtro.items||[];
+    if(!catOtro.items.includes(v))catOtro.items.push(v);
+    S.set('chw_cfg',cfg);
+    try{await saveProfileToSB({temas:cfg.temas});}catch(e){console.error('No se pudo guardar el tema nuevo:',e.message);}
+  }
+}
+async function guardarOtroProducto(){
+  var prodSel=document.getElementById('producto'),prodInput=document.getElementById('producto-otro');
+  if(prodSel&&prodSel.value==='__otro_producto__'&&prodInput&&prodInput.value.trim()){
+    var vp=prodInput.value.trim();
+    cfg.productos=cfg.productos||[];
+    if(!cfg.productos.some(function(p){return(typeof p==='object'?p.nombre:p)===vp;})){
+      cfg.productos.push({nombre:vp,descripcion:''});
+      S.set('chw_cfg',cfg);
+      try{await saveProfileToSB({productos:cfg.productos});}catch(e){console.error('No se pudo guardar el producto nuevo:',e.message);}
+    }
+  }
+}
 function getF(){
   var contexto=contextoActual||'tema';
-  var tema=document.getElementById('tema')?.value||'';
-  var producto=document.getElementById('producto')?.value||'';
+  var temaOtroEl=document.getElementById('tema-otro'),prodOtroEl=document.getElementById('producto-otro');
+  var temaSelVal=document.getElementById('tema')?.value||'';
+  var prodSelVal=document.getElementById('producto')?.value||'';
+  var tema=(temaSelVal==='__otro_tema__'&&temaOtroEl)?temaOtroEl.value.trim():temaSelVal;
+  var producto=(prodSelVal==='__otro_producto__'&&prodOtroEl)?prodOtroEl.value.trim():prodSelVal;
   var temaFinal=contexto==='producto'?producto:tema;
   return{
     tema:temaFinal,
@@ -4501,6 +4574,7 @@ function cpCod(id){const v=document.getElementById(id)?.textContent;if(v)navigat
 
 // === GUION
 async function genGuion(){
+  guardarOtroTema('tema','tema-otro','__otro_tema__');guardarOtroProducto();
   const v=getF();if(!valF(v)){showMsg('Completa todos los campos.');return;}
   if(planLimitReached('guion')){document.getElementById('gbox').style.display='none';showMsg('Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes ('+PLAN_LIMITS[cfg.plan||'gratis'].guiones+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.');return;}
   checkProdDesc(v);
@@ -6053,6 +6127,10 @@ function fillCarTemas(){
     (cat.items||[]).forEach(it=>{const o=document.createElement('option');o.value=o.textContent=it;sel.appendChild(o);});
   });
   if(tv)sel.value=tv;
+  var otroCarOpt=document.createElement('option');
+  otroCarOpt.value='__otro_tema_car__';
+  otroCarOpt.textContent='✏️ Otro (escribir tema)';
+  sel.appendChild(otroCarOpt);
 }
 
 async function genCarrusel(){
@@ -6061,7 +6139,10 @@ async function genCarrusel(){
   var btn=document.getElementById('btn-carrusel');
   var killer=null;
   try{
-    var tema=document.getElementById('car-tema').value;
+    guardarOtroTema('car-tema','car-tema-otro','__otro_tema_car__');
+    var carTemaSelVal=document.getElementById('car-tema').value;
+    var carTemaOtroEl=document.getElementById('car-tema-otro');
+    var tema=(carTemaSelVal==='__otro_tema_car__'&&carTemaOtroEl)?carTemaOtroEl.value.trim():carTemaSelVal;
     var slidesN=parseInt(document.getElementById('car-slides').value);
     var tono=document.getElementById('car-tono').value;
     var contexto=document.getElementById('car-contexto').value;
