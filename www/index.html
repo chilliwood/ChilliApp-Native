@@ -4018,6 +4018,7 @@ async function sendBerryMessage(){
     if(!d.ok){
       berryMsgs.push({role:'assistant',content:'⚠️ '+(d.error||'No pude responder, intenta de nuevo.')});
       renderBerryMessages();
+      logErrorSilencioso('berry-chat',d.error||'sin detalle');
       return;
     }
     berryMsgs.push({role:'assistant',content:d.reply});
@@ -4027,8 +4028,9 @@ async function sendBerryMessage(){
       document.getElementById('berry-chat-usage').textContent='Mensajes usados este mes: '+d.used+'/'+d.limit;
     }
   }catch(e){
-    berryMsgs.push({role:'assistant',content:'⚠️ No pude conectarme, intenta de nuevo.'});
+    berryMsgs.push({role:'assistant',content:'⚠️ No pude conectarme, intenta de nuevo. '+sugerenciaError(null,true)});
     renderBerryMessages();
+    logErrorSilencioso('berry-chat','red: '+(e&&e.message?e.message:String(e)));
   }finally{
     berryLoading=false;
     sendBtn.disabled=false;sendBtn.textContent='➤';
@@ -4573,6 +4575,23 @@ function showToast(m){const el=document.getElementById('toast');el.textContent=m
 function cpCod(id){const v=document.getElementById(id)?.textContent;if(v)navigator.clipboard.writeText(v).then(()=>showToast('Copiado ✓'));}
 
 // === GUION
+// Registra una falla para el resumen diario — nunca bloquea ni interrumpe
+// al usuario si esto mismo falla (por diseño, log-error.js tampoco lanza
+// error nunca). Se llama "y se olvida", sin esperar la respuesta.
+// Traduce el tipo de falla en una sugerencia clara para el usuario — para
+// que sepa si conviene reintentar ya, esperar un poco, o escribir a
+// contacto en vez de seguir intentando sin sentido.
+function sugerenciaError(status,esRed){
+  if(esRed)return 'Revisa tu conexión a internet e inténtalo de nuevo.';
+  if(status===504)return 'El servidor demoró demasiado — inténtalo de nuevo en un momento.';
+  if(status===429)return 'Hay mucha demanda en este momento — espera un minuto e inténtalo de nuevo.';
+  if(status>=500)return 'Hubo un problema de nuestro lado — si se repite, escríbenos a contacto@chilliwood.cl.';
+  return 'Si el problema persiste, escríbenos a contacto@chilliwood.cl.';
+}
+function logErrorSilencioso(funcion,detalle){
+  if(!sbToken)return;
+  fetch('/.netlify/functions/log-error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,funcion:funcion,detalle:String(detalle||'').slice(0,300)})}).catch(function(){});
+}
 async function genGuion(){
   guardarOtroTema('tema','tema-otro','__otro_tema__');guardarOtroProducto();
   const v=getF();if(!valF(v)){showMsg('Completa todos los campos.');return;}
@@ -4590,12 +4609,14 @@ async function genGuion(){
   try{
     const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:mkPrompt(v)})});
     const d=await r.json();
-    if(!r.ok){txt.value='Error ('+r.status+'): '+(d.error?.message||'');devolverCupo('guion');return;}
+    if(!r.ok){txt.value='Error ('+r.status+'): '+(d.error?.message||'')+'\n\n'+sugerenciaError(r.status,false);devolverCupo('guion');logErrorSilencioso('guion','HTTP '+r.status+' '+(d.error?.message||''));return;}
     guion=d.content?.[0]?.text||'Sin respuesta.';
     txt.value=guion;
-  }catch(e){txt.value='Error de red: '+e.message;devolverCupo('guion');}
+  }catch(e){txt.value='Error de red: '+e.message+'\n\n'+sugerenciaError(null,true);devolverCupo('guion');logErrorSilencioso('guion','red: '+e.message);}
   btn.disabled=false;btn.textContent='✨ Guión IA';
 }
+
+
 
 
 
@@ -6183,7 +6204,7 @@ async function genCarrusel(){
     var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt}),signal:controller.signal});
     clearTimeout(killer);killer=null;
     var d=await r.json();
-    if(!r.ok){msg.textContent='Error ('+r.status+'): '+(d.error||'desconocido');msg.style.color='#dc2626';msg.style.display='block';return;}
+    if(!r.ok){msg.textContent='Error ('+r.status+'): '+(d.error||'desconocido')+' — '+sugerenciaError(r.status,false);msg.style.color='#dc2626';msg.style.display='block';logErrorSilencioso('carrusel','HTTP '+r.status+' '+(d.error||''));return;}
     var outlineText=d.content&&d.content[0]&&d.content[0].text||'';
     var topics=parseCarOutline(outlineText,slidesN,tema);
 
@@ -6191,9 +6212,11 @@ async function genCarrusel(){
     await renderCarruselV2(topics,slidesN,tema,tono,negocio,contexto);
   }catch(e){
     if(killer)clearTimeout(killer);
-    msg.textContent=(e&&e.name==='AbortError')?'⚠️ Tardó más de 20s sin responder.':'⚠️ Error: '+(e&&e.message?e.message:String(e));
+    var esAbort=(e&&e.name==='AbortError');
+    msg.textContent=(esAbort?'⚠️ Tardó más de 20s sin responder.':'⚠️ Error: '+(e&&e.message?e.message:String(e)))+' — '+sugerenciaError(esAbort?504:null,!esAbort);
     msg.style.color='#dc2626';msg.style.display='block';
     devolverCupo('carrusel');
+    logErrorSilencioso('carrusel',esAbort?'timeout 20s':'error: '+(e&&e.message?e.message:String(e)));
   }finally{
     btn.disabled=false;btn.textContent='✨ Generar carrusel';
   }
