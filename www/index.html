@@ -1320,7 +1320,12 @@ async function installApp(){
 
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Cuenta</div>
       <button class="side-item" onclick="closeSideMenu();openAccounts();">👤 Cambiar de cuenta</button>
-      <button class="side-item" onclick="closeSideMenu();openDelCuenta();">🗑 Eliminar mi cuenta</button>
+
+      <!-- Separado a propósito del botón de arriba: son dos acciones muy
+           distintas (una cambia de negocio, la otra borra datos sin vuelta
+           atrás) y estaban lo bastante juntas como para tocarla por error. -->
+      <div style="margin:22px 18px 0;border-top:1px solid var(--br);"></div>
+      <button class="side-item" onclick="closeSideMenu();openDelCuenta();" style="margin-top:10px;color:var(--tx2);font-size:12px;">🗑 Eliminar mi cuenta</button>
     </div>
   </div>
 
