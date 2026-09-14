@@ -558,6 +558,8 @@ body{background:#f2f6ff;}
 #cal-sugerir-modal.open{display:flex;pointer-events:all;}
 #upgrade-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:91;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);}
 #upgrade-modal.open{display:flex;pointer-events:all;}
+#delcuenta-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:92;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);}
+#delcuenta-modal.open{display:flex;pointer-events:all;}
 .cal-sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:16px 20px;padding-bottom:max(env(safe-area-inset-bottom),24px);max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
 /* ─── ADMIN MODAL ─── */
@@ -743,6 +745,17 @@ if('serviceWorker' in navigator){
     return _origFetch(url,opts);
   };
 })();
+// ¿Estamos dentro de la app nativa de iOS? La guideline 3.1.1 de Apple prohíbe
+// que una app entregue acceso a funciones pagadas por fuera de su sistema de
+// compras, y esa excepción de "botones y enlaces externos" que se abrió en 2025
+// aplica SOLO a la tienda de Estados Unidos — Chile sigue con la regla anterior.
+// Por eso en iOS no se muestra nada que ofrezca subir de plan ni que lleve a
+// contratarlo por WhatsApp. En web y Android todo sigue exactamente igual.
+// Ojo: agendar sesiones SÍ se mantiene en iOS — son servicios del mundo real
+// (grabación, producción), que Apple excluye expresamente de su sistema de
+// compras; lo que no puede aparecer son los planes de la app.
+var ES_IOS = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
+
 // Captura el prompt nativo de instalación de Chrome — se guarda para dispararlo
 // desde un botón propio en el dashboard, en vez de depender de que el usuario
 // encuentre "Agregar a pantalla de inicio" en el menú de 3 puntos.
@@ -1307,6 +1320,7 @@ async function installApp(){
 
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Cuenta</div>
       <button class="side-item" onclick="closeSideMenu();openAccounts();">👤 Cambiar de cuenta</button>
+      <button class="side-item" onclick="closeSideMenu();openDelCuenta();">🗑 Eliminar mi cuenta</button>
     </div>
   </div>
 
@@ -1675,6 +1689,39 @@ async function installApp(){
         </div>
         <div id="upgrade-plans-list"></div>
         <button class="btn btn-ai" onclick="contactarUpgrade()" style="width:100%;margin-top:6px;">💬 Escríbenos por WhatsApp</button>
+      </div>
+    </div>
+
+    <!-- ELIMINAR CUENTA — requisito de Google Play y App Store para toda app
+         que permite crear cuenta. El borrado real lo hace delete-account.js en
+         el servidor; acá solo se pide la confirmación. -->
+    <div id="delcuenta-modal" onclick="if(event.target===this)closeDelCuenta()">
+      <div class="cal-sheet">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <p style="font-size:15px;font-weight:800;color:var(--tx);margin:0;">Eliminar mi cuenta</p>
+          <button onclick="closeDelCuenta()" style="background:none;border:none;color:var(--tx2);font-size:20px;padding:4px 8px;cursor:pointer;">✕</button>
+        </div>
+
+        <p style="font-size:13px;color:var(--tx);line-height:1.6;margin-bottom:10px;">Esto elimina de forma permanente:</p>
+        <ul style="font-size:13px;color:var(--tx2);line-height:1.7;margin:0 0 14px;padding-left:20px;">
+          <li>Tu cuenta y tu acceso a la app</li>
+          <li>El perfil de tu negocio y tu marca</li>
+          <li>Tus guiones, carruseles y publicaciones</li>
+          <li>Tu conversación con Berry Chilli</li>
+          <li>Tus métricas e historial de redes sociales</li>
+        </ul>
+        <p style="font-size:12px;color:var(--tx2);line-height:1.6;margin-bottom:16px;">Las sesiones que tengas agendadas se mantienen reservadas, pero dejan de estar asociadas a tu nombre. No se puede deshacer.</p>
+
+        <div class="f">
+          <label>Escribe tu correo para confirmar</label>
+          <input type="email" id="delcuenta-mail" autocomplete="off" placeholder="tucorreo@ejemplo.cl">
+        </div>
+        <p id="delcuenta-msg" style="font-size:12px;color:#ef4444;line-height:1.5;margin:0 0 12px;display:none;"></p>
+
+        <div style="display:flex;gap:8px;">
+          <button class="btn" onclick="closeDelCuenta()" style="flex:1;background:var(--bg2);color:var(--tx2);border:1px solid var(--br);">Cancelar</button>
+          <button class="btn" id="delcuenta-btn" onclick="confirmarEliminarCuenta()" style="flex:1;background:#ef4444;color:#fff;border:none;">Eliminar</button>
+        </div>
       </div>
     </div>
 
@@ -2063,11 +2110,14 @@ function renderTabLocked(tabId,label,planNecesario){
   el.innerHTML='<div style="max-width:360px;margin:80px auto 0;text-align:center;padding:24px;">'
     +'<div style="font-size:36px;margin-bottom:12px;">🔒</div>'
     +'<div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:8px;">'+label+' es parte del plan '+planNecesario+'</div>'
-    +'<div style="font-size:13px;color:var(--tx2);margin-bottom:16px;">Pregúntale a Chilliwood por un cambio de plan para desbloquear esta sección.</div>'
-    +'<button class="btn btn-ai" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>'
+    +(ES_IOS
+      ? '<div style="font-size:13px;color:var(--tx2);">Esta sección no está incluida en tu plan actual.</div>'
+      : '<div style="font-size:13px;color:var(--tx2);margin-bottom:16px;">Pregúntale a Chilliwood por un cambio de plan para desbloquear esta sección.</div>'
+        +'<button class="btn btn-ai" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>')
     +'</div>';
 }
 function openUpgradeModal(){
+  if(ES_IOS)return; // ver nota de ES_IOS arriba — en iOS no se ofrece subir de plan
   var planActual=cfg.plan||'gratis';
   var planes=[
     {id:'gratis',label:'Gratis',guiones:5,carruseles:1,stats:false,insights:false,sugerir:false},
@@ -2089,6 +2139,7 @@ function openUpgradeModal(){
 }
 function closeUpgradeModal(){document.getElementById('upgrade-modal').classList.remove('open');}
 function contactarUpgrade(){
+  if(ES_IOS)return; // ver nota de ES_IOS arriba — este es justo el enlace externo que Apple no permite
   var planActual=PLAN_LIMITS[cfg.plan||'gratis'].label;
   var msg=encodeURIComponent('Hola Chilliwood, estoy en el plan '+planActual+' de ChilliApp y quiero saber sobre subir de plan.');
   window.open('https://wa.me/56998013008?text='+msg,'_blank');
@@ -2970,7 +3021,7 @@ function renderDashboard(){
     +'<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tx);margin-bottom:6px;"><span>📝 Guiones este mes</span><strong>'+uso.guiones+' / '+plan.guiones+'</strong></div>'
     +'<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tx);"><span>🎠 Carruseles este mes</span><strong>'+uso.carruseles+' / '+plan.carruseles+'</strong></div>'
     +'</div>';
-  if((cfg.plan||'gratis')!=='completa'){
+  if((cfg.plan||'gratis')!=='completa' && !ES_IOS){
     html+='<button class="btn btn-ai" onclick="openUpgradeModal()" style="width:100%;margin-bottom:14px;">⬆️ Mejorar mi plan</button>';
   }
 
@@ -4825,8 +4876,8 @@ async function doSmart(){
     document.getElementById('sres').innerHTML='<div style="text-align:center;padding:8px 0 4px;">'
       +'<div style="font-size:28px;margin-bottom:8px;">🔒</div>'
       +'<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px;">Sugerencia inteligente es parte del plan Completa</div>'
-      +'<div style="font-size:12px;color:var(--tx2);margin-bottom:12px;">Se basa en el mismo análisis de desempeño que Insights.</div>'
-      +'<button class="btn btn-ai btn-sm" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>'
+      +'<div style="font-size:12px;color:var(--tx2);'+(ES_IOS?'':'margin-bottom:12px;')+'">Se basa en el mismo análisis de desempeño que Insights.</div>'
+      +(ES_IOS?'':'<button class="btn btn-ai btn-sm" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>')
       +'</div>';
     return;
   }
@@ -8279,6 +8330,61 @@ function deleteAccount(id){
   if(cur===id){S.del('chw_cur_acct');}
   renderAcctsList();
   showToast('Cuenta eliminada');
+}
+
+// ── ELIMINACIÓN DEFINITIVA DE LA CUENTA ──
+// OJO: esto NO es deleteAccount() de arriba, que solo quita el negocio de la
+// lista de accesos rápidos de ESTE teléfono. Lo de acá borra los datos del
+// servidor y no se puede deshacer. Requisito de Google Play y App Store para
+// cualquier app que permita crear cuenta.
+function openDelCuenta(){
+  document.getElementById('delcuenta-mail').value='';
+  var msg=document.getElementById('delcuenta-msg');
+  msg.style.display='none';msg.textContent='';
+  var btn=document.getElementById('delcuenta-btn');
+  btn.disabled=false;btn.textContent='Eliminar';
+  document.getElementById('delcuenta-modal').classList.add('open');
+}
+function closeDelCuenta(){document.getElementById('delcuenta-modal').classList.remove('open');}
+
+async function confirmarEliminarCuenta(){
+  var msg=document.getElementById('delcuenta-msg');
+  var btn=document.getElementById('delcuenta-btn');
+  var correo=document.getElementById('delcuenta-mail').value.trim();
+  msg.style.display='none';
+
+  function fallar(t){msg.textContent=t;msg.style.display='block';btn.disabled=false;btn.textContent='Eliminar';}
+
+  if(!correo){return fallar('Escribe el correo de tu cuenta para confirmar.');}
+  if(!sbToken){return fallar('Tu sesión venció — inicia sesión de nuevo antes de eliminar la cuenta.');}
+  if(!confirm('Esta acción es permanente y no se puede deshacer.\n\n¿Eliminar definitivamente tu cuenta?'))return;
+
+  btn.disabled=true;btn.textContent='Eliminando…';
+  try{
+    var r=await fetch('/.netlify/functions/delete-account',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:sbToken,confirmacion:correo})
+    });
+    var d=await r.json();
+    if(!d.ok)return fallar(d.error||'No se pudo eliminar la cuenta.');
+
+    // Borrado en el servidor confirmado — recién ahora se limpia el rastro
+    // local de este negocio en el dispositivo. Se hace en este orden a
+    // propósito: si el servidor hubiera fallado, la sesión sigue usable.
+    var id=sbCid;
+    var accts=getAccounts();
+    if(id&&accts[id]){delete accts[id];saveAccounts(accts);}
+    S.del('chw_cur_acct');S.del('chw_sb_c');S.del('chw_token');
+    S.del('chw_cfg');S.del('chw_videos');S.del('chw_gam');S.del('chw_temas');
+    S.del('chw_onboarded');S.del('chw_last_sync');
+    clearBusinessLocalCache();
+
+    closeDelCuenta();
+    alert('Tu cuenta fue eliminada. Gracias por haber usado ChilliApp.');
+    window.location.reload();
+  }catch(e){
+    fallar('No se pudo eliminar la cuenta: '+e.message);
+  }
 }
 
 // Auto-save current account on load
