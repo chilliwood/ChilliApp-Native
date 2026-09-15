@@ -80,6 +80,15 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'ChilliApp guarda en tu galería los videos que grabas.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryUsageDescription" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'ChilliApp accede a tu galería para que puedas usar tus imágenes en la app.'" "$PLIST"
+          # ITMS-90683: el analisis estatico del binario detecto que una de las
+          # bibliotecas incluidas (el plugin de media, que guarda videos en la
+          # galeria y lee los metadatos que la camara incrusta) referencia la
+          # API de localizacion. Apple exige el texto explicativo aunque el
+          # codigo propio nunca pida el permiso, porque el analisis no
+          # distingue entre lo que usa la app y lo que trae una dependencia.
+          # En la practica este permiso no se solicita nunca en pantalla.
+          /usr/libexec/PlistBuddy -c "Delete :NSLocationWhenInUseUsageDescription" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'ChilliApp solo accede a la ubicacion para conservar los datos de lugar que tu camara guarda junto a los videos. No se usa para ninguna otra cosa ni se comparte.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ env.APP_VERSION }}" "$PLIST"
@@ -134,16 +143,46 @@ jobs:
       - name: Preparar la clave de App Store Connect
         # altool busca el .p8 en rutas fijas y con un nombre exacto
         # (AuthKey_<KEYID>.p8); no acepta una ruta arbitraria.
+        #
+        # El contenido se NORMALIZA en vez de confiar en como quedo pegado en
+        # el secreto: al copiar un .p8 desde un editor de Windows se cuelan
+        # saltos CRLF, y al pegarlo desde ciertos visores queda todo en una
+        # sola linea. En ambos casos xcodebuild falla con
+        # "invalidPEMDocument", que no dice nada sobre la causa real.
+        # Se reconstruye el PEM desde el base64: cabecera, cuerpo en lineas de
+        # 64 caracteres, y cierre.
         env:
           APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
         run: |
+          set -e
           mkdir -p ~/private_keys
-          echo "$APPSTORE_PRIVATE_KEY" > ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
-          chmod 600 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
-          # Falla temprano y con mensaje claro si el secreto se pegó mal.
-          head -1 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 | grep -q "BEGIN PRIVATE KEY" \
-            || { echo "El secreto APPSTORE_PRIVATE_KEY no tiene el formato de un .p8 (falta la línea BEGIN PRIVATE KEY)."; exit 1; }
+          DEST=~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          printf '%s' "$APPSTORE_PRIVATE_KEY" > /tmp/key.raw
+          python3 - "$DEST" <<'PY'
+          import re, sys, base64
+          crudo = open('/tmp/key.raw', 'rb').read().decode('utf-8', 'replace')
+          crudo = crudo.replace('\r', '')
+          cuerpo = re.sub(r'-----[A-Z ]+-----', '', crudo)
+          cuerpo = re.sub(r'\s+', '', cuerpo)
+          if not cuerpo:
+              sys.exit('El secreto APPSTORE_PRIVATE_KEY llego vacio.')
+          try:
+              base64.b64decode(cuerpo, validate=True)
+          except Exception as e:
+              sys.exit('El contenido de APPSTORE_PRIVATE_KEY no es base64 valido: %s' % e)
+          lineas = [cuerpo[i:i+64] for i in range(0, len(cuerpo), 64)]
+          pem = '-----BEGIN PRIVATE KEY-----\n' + '\n'.join(lineas) + '\n-----END PRIVATE KEY-----\n'
+          open(sys.argv[1], 'w').write(pem)
+          print('PEM reconstruido: %d caracteres de base64, %d lineas de cuerpo' % (len(cuerpo), len(lineas)))
+          PY
+          rm -f /tmp/key.raw
+          chmod 600 "$DEST"
+          # Comprobacion real: que openssl la reconozca como clave privada.
+          # Falla aca, con mensaje claro, en vez de 10 minutos despues.
+          openssl pkey -in "$DEST" -noout \
+            && echo "La clave privada es valida." \
+            || { echo "openssl no reconoce la clave — revisa que el secreto APPSTORE_PRIVATE_KEY tenga el contenido completo del .p8."; exit 1; }
 
       - name: Archivar la app (sin firmar)
         # Se archiva SIN firma a proposito. Con firma automatica, xcodebuild
