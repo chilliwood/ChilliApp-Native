@@ -131,6 +131,32 @@ jobs:
           echo "Esquemas disponibles:"
           xcodebuild $XCODE_CONTAINER -list
 
+      - name: Forzar identidad de firma de distribucion
+        # La plantilla iOS de Capacitor deja la identidad de firma fijada en
+        # desarrollo ("iPhone Developer" / "Apple Development") en TODAS las
+        # configuraciones, Release incluida. Con firma automatica, Xcode elige
+        # que perfil pedirle a Apple segun esa identidad: encuentra una de
+        # desarrollo y pide un perfil de desarrollo, que Apple solo emite si el
+        # equipo tiene dispositivos registrados — de ahi el "your team has no
+        # devices". Para subir a TestFlight el perfil correcto es de
+        # distribucion, que no necesita ningun dispositivo.
+        #
+        # El pbxproj se regenera en cada corrida (ios/ no vive en el repo), asi
+        # que el ajuste hay que aplicarlo aca y no una sola vez a mano.
+        run: |
+          set -e
+          PBX=ios/App/App.xcodeproj/project.pbxproj
+          echo "── Ajustes de firma ANTES ──"
+          grep -nE 'CODE_SIGN|PROVISIONING_PROFILE|DEVELOPMENT_TEAM' "$PBX" || echo "(ninguno)"
+          sed -i '' -E 's/(CODE_SIGN_IDENTITY(\[[^]]*\])?[[:space:]]*=[[:space:]]*)"?(iPhone Developer|Apple Development)"?/\1"Apple Distribution"/g' "$PBX"
+          sed -i '' -E 's/CODE_SIGN_STYLE[[:space:]]*=[[:space:]]*Manual/CODE_SIGN_STYLE = Automatic/g' "$PBX"
+          echo "── Ajustes de firma DESPUES ──"
+          grep -nE 'CODE_SIGN|PROVISIONING_PROFILE|DEVELOPMENT_TEAM' "$PBX" || echo "(ninguno)"
+          if grep -qE 'CODE_SIGN_IDENTITY.*(iPhone Developer|Apple Development)' "$PBX"; then
+            echo "Quedo alguna identidad de desarrollo sin reemplazar — revisar el listado de arriba."
+            exit 1
+          fi
+
       - name: Preparar la clave de App Store Connect
         # altool busca el .p8 en rutas fijas y con un nombre exacto
         # (AuthKey_<KEYID>.p8); no acepta una ruta arbitraria.
@@ -166,6 +192,7 @@ jobs:
             -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             PRODUCT_BUNDLE_IDENTIFIER="${{ env.BUNDLE_ID }}"
 
       - name: Exportar el .ipa
