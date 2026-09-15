@@ -131,32 +131,6 @@ jobs:
           echo "Esquemas disponibles:"
           xcodebuild $XCODE_CONTAINER -list
 
-      - name: Forzar identidad de firma de distribucion
-        # La plantilla iOS de Capacitor deja la identidad de firma fijada en
-        # desarrollo ("iPhone Developer" / "Apple Development") en TODAS las
-        # configuraciones, Release incluida. Con firma automatica, Xcode elige
-        # que perfil pedirle a Apple segun esa identidad: encuentra una de
-        # desarrollo y pide un perfil de desarrollo, que Apple solo emite si el
-        # equipo tiene dispositivos registrados — de ahi el "your team has no
-        # devices". Para subir a TestFlight el perfil correcto es de
-        # distribucion, que no necesita ningun dispositivo.
-        #
-        # El pbxproj se regenera en cada corrida (ios/ no vive en el repo), asi
-        # que el ajuste hay que aplicarlo aca y no una sola vez a mano.
-        run: |
-          set -e
-          PBX=ios/App/App.xcodeproj/project.pbxproj
-          echo "── Ajustes de firma ANTES ──"
-          grep -nE 'CODE_SIGN|PROVISIONING_PROFILE|DEVELOPMENT_TEAM' "$PBX" || echo "(ninguno)"
-          sed -i '' -E 's/(CODE_SIGN_IDENTITY(\[[^]]*\])?[[:space:]]*=[[:space:]]*)"?(iPhone Developer|Apple Development)"?/\1"Apple Distribution"/g' "$PBX"
-          sed -i '' -E 's/CODE_SIGN_STYLE[[:space:]]*=[[:space:]]*Manual/CODE_SIGN_STYLE = Automatic/g' "$PBX"
-          echo "── Ajustes de firma DESPUES ──"
-          grep -nE 'CODE_SIGN|PROVISIONING_PROFILE|DEVELOPMENT_TEAM' "$PBX" || echo "(ninguno)"
-          if grep -qE 'CODE_SIGN_IDENTITY.*(iPhone Developer|Apple Development)' "$PBX"; then
-            echo "Quedo alguna identidad de desarrollo sin reemplazar — revisar el listado de arriba."
-            exit 1
-          fi
-
       - name: Preparar la clave de App Store Connect
         # altool busca el .p8 en rutas fijas y con un nombre exacto
         # (AuthKey_<KEYID>.p8); no acepta una ruta arbitraria.
@@ -171,10 +145,22 @@ jobs:
           head -1 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 | grep -q "BEGIN PRIVATE KEY" \
             || { echo "El secreto APPSTORE_PRIVATE_KEY no tiene el formato de un .p8 (falta la línea BEGIN PRIVATE KEY)."; exit 1; }
 
-      - name: Archivar la app
-        # -allowProvisioningUpdates + las credenciales de API es lo que permite
-        # que Xcode cree solo el certificado y el perfil de aprovisionamiento,
-        # sin que nadie tenga que generarlos a mano en un Mac.
+      - name: Archivar la app (sin firmar)
+        # Se archiva SIN firma a proposito. Con firma automatica, xcodebuild
+        # firma el archivo para DESARROLLO — asi funciona Xcode: archiva con
+        # firma de desarrollo y re-firma para distribucion al exportar. El
+        # problema es que un perfil de desarrollo solo lo emite Apple si el
+        # equipo tiene algun dispositivo registrado, y aca no hay ninguno ni
+        # hace falta: el destino es TestFlight, no un iPhone de pruebas.
+        #
+        # Desactivando la firma en esta etapa no se pide ningun perfil, y la
+        # firma real —la de distribucion App Store— la aplica el paso de
+        # exportacion, que si sabe crear el certificado y el perfil con la
+        # clave de API. Es el camino habitual en CI sin Mac.
+        #
+        # Tampoco se pasa PRODUCT_BUNDLE_IDENTIFIER: en la linea de comandos
+        # aplicaria a los 14 targets, incluidos los paquetes de terceros. El
+        # identificador correcto ya viene de capacitor.config.json.
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -191,9 +177,11 @@ jobs:
             -authenticationKeyID "$APPSTORE_KEY_ID" \
             -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PRODUCT_BUNDLE_IDENTIFIER="${{ env.BUNDLE_ID }}"
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+          echo "Archivo generado sin firmar — la firma de distribucion la pone el paso de exportacion."
+
 
       - name: Exportar el .ipa
         env:
