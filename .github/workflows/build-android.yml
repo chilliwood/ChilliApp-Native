@@ -27,7 +27,15 @@ jobs:
           java-version: '21'
 
       - name: Instalar Android SDK
+        # packages: '' es obligatorio. Por defecto esta accion instala
+        # "tools platform-tools", y Google retiro el paquete legado "tools"
+        # de su repositorio el 14-09-2026: sdkmanager no lo encuentra, aborta,
+        # y el build muere antes de compilar nada. Con la lista vacia no
+        # instala nada y se usa el SDK que el runner ya trae preinstalado,
+        # que incluye platform-tools y build-tools — todo lo que Gradle necesita.
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Instalar dependencias (npm)
         run: npm install

@@ -1,0 +1,211 @@
+name: Build iOS TestFlight
+
+# Compila, firma y sube a TestFlight desde un runner macOS de GitHub. En un
+# repositorio público los minutos de los runners estándar —macOS incluido— son
+# gratis e ilimitados en cualquier plan, así que esto no cuesta nada.
+#
+# A diferencia del de Android, este NO corre en cada push: subir un build a
+# TestFlight consume un número de compilación y gatilla el procesamiento de
+# Apple. Se lanza a mano desde la pestaña "Actions".
+on:
+  workflow_dispatch:
+
+env:
+  APP_VERSION: '1.0'          # visible en App Store; sube a 1.1, 2.0, etc.
+  BUNDLE_ID: cl.chilliwood.chilliapp
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias (npm)
+        run: npm install
+
+      - name: Regenerar íconos de iOS desde assets/icon.png
+        run: npx @capacitor/assets generate --ios || echo "assets/icon.png no encontrado — se mantienen los íconos actuales"
+
+      - name: Generar el proyecto iOS
+        # La carpeta ios/ no vive en el repo: se genera en cada ejecución.
+        # Eso mantiene el repo limpio, pero obliga a volver a aplicar por
+        # script todo lo que normalmente se configuraría a mano en Xcode
+        # (permisos, versión, esquema) — es lo que hacen los pasos siguientes.
+        run: |
+          if [ ! -d ios ]; then
+            npx cap add ios
+          else
+            npx cap sync ios
+          fi
+
+      - name: Declarar permisos y encriptación en Info.plist
+        # Sin estos textos la app NO pide el permiso: se cae en el momento en
+        # que intenta abrir la cámara. Apple además los lee en la revisión —
+        # un permiso sin explicación es motivo de rechazo.
+        # ITSAppUsesNonExemptEncryption=false declara que la app solo usa
+        # HTTPS, que es la excepción estándar; sin esta clave App Store
+        # Connect pregunta por la documentación de exportación en cada envío.
+        run: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Delete :NSCameraUsageDescription" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'ChilliApp usa la cámara para grabar tus videos con el teleprompter en pantalla.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :NSMicrophoneUsageDescription" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'ChilliApp usa el micrófono para grabar el audio de tus videos.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryAddUsageDescription" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'ChilliApp guarda en tu galería los videos que grabas.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryUsageDescription" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'ChilliApp accede a tu galería para que puedas usar tus imágenes en la app.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :ITSAppUsesNonExemptEncryption" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ env.APP_VERSION }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST"
+          echo "── Info.plist resultante ──"
+          /usr/libexec/PlistBuddy -c "Print" "$PLIST"
+
+      - name: Asegurar el esquema compartido de Xcode
+        # Xcode escribe el esquema la primera vez que alguien abre el proyecto
+        # en la interfaz gráfica. En un runner sin pantalla eso no pasa nunca,
+        # así que xcodebuild -scheme App se queda sin nada que resolver. Se
+        # crea acá solo si falta; si la plantilla de Capacitor ya lo trae, no
+        # se toca nada.
+        run: |
+          DIR=ios/App/App.xcodeproj/xcshareddata/xcschemes
+          if [ -f "$DIR/App.xcscheme" ]; then
+            echo "El esquema ya existe, no se toca."
+            exit 0
+          fi
+          mkdir -p "$DIR"
+          BLOB=$(grep -m1 -E '[0-9A-F]{24} /\* App \*/ = \{' ios/App/App.xcodeproj/project.pbxproj | awk '{print $1}')
+          echo "BlueprintIdentifier del target App: $BLOB"
+          cat > "$DIR/App.xcscheme" <<XCSCHEME
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Scheme LastUpgradeVersion="1500" version="1.7">
+             <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+                <BuildActionEntries>
+                   <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="$BLOB" BuildableName="App.app" BlueprintName="App" ReferencedContainer="container:App.xcodeproj"/>
+                   </BuildActionEntry>
+                </BuildActionEntries>
+             </BuildAction>
+             <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
+                <BuildableProductRunnable runnableDebuggingMode="0">
+                   <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="$BLOB" BuildableName="App.app" BlueprintName="App" ReferencedContainer="container:App.xcodeproj"/>
+                </BuildableProductRunnable>
+             </LaunchAction>
+             <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
+                <BuildableProductRunnable runnableDebuggingMode="0">
+                   <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="$BLOB" BuildableName="App.app" BlueprintName="App" ReferencedContainer="container:App.xcodeproj"/>
+                </BuildableProductRunnable>
+             </ProfileAction>
+             <AnalyzeAction buildConfiguration="Debug"/>
+             <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+          </Scheme>
+          XCSCHEME
+          # El heredoc de arriba va indentado dentro del YAML; se limpia acá.
+          sed -i '' -E 's/^ {10}//' "$DIR/App.xcscheme"
+          echo "Esquemas disponibles:"
+          xcodebuild -workspace ios/App/App.xcworkspace -list
+
+      - name: Preparar la clave de App Store Connect
+        # altool busca el .p8 en rutas fijas y con un nombre exacto
+        # (AuthKey_<KEYID>.p8); no acepta una ruta arbitraria.
+        env:
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$APPSTORE_PRIVATE_KEY" > ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          # Falla temprano y con mensaje claro si el secreto se pegó mal.
+          head -1 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 | grep -q "BEGIN PRIVATE KEY" \
+            || { echo "El secreto APPSTORE_PRIVATE_KEY no tiene el formato de un .p8 (falta la línea BEGIN PRIVATE KEY)."; exit 1; }
+
+      - name: Archivar la app
+        # -allowProvisioningUpdates + las credenciales de API es lo que permite
+        # que Xcode cree solo el certificado y el perfil de aprovisionamiento,
+        # sin que nadie tenga que generarlos a mano en un Mac.
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER="${{ env.BUNDLE_ID }}"
+
+      - name: Exportar el .ipa
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+            <key>signingStyle</key><string>automatic</string>
+          </dict>
+          </plist>
+          PLIST
+          sed -i '' -E 's/^ {10}//' "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID"
+          ls -lh "$RUNNER_TEMP/ipa"
+
+      - name: Dejar el .ipa descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: chilliapp-ios-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          retention-days: 30
+
+      - name: Subir a TestFlight
+        # Apple marcó --upload-app como obsoleto en favor de --upload-package,
+        # pero el juego de parámetros cambió entre versiones de Xcode. Se
+        # intenta primero el nuevo y se cae al anterior si el runner trae un
+        # Xcode que todavía no lo acepta.
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          IPA=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
+          echo "Subiendo: $IPA"
+          xcrun altool --upload-package "$IPA" \
+            --type ios \
+            --apple-id "${{ env.BUNDLE_ID }}" \
+            --bundle-id "${{ env.BUNDLE_ID }}" \
+            --bundle-version "${{ github.run_number }}" \
+            --bundle-short-version-string "${{ env.APP_VERSION }}" \
+            --apiKey "$APPSTORE_KEY_ID" \
+            --apiIssuer "$APPSTORE_ISSUER_ID" \
+          || xcrun altool --upload-app -f "$IPA" \
+            --type ios \
+            --apiKey "$APPSTORE_KEY_ID" \
+            --apiIssuer "$APPSTORE_ISSUER_ID"
+          echo "Listo. Apple tarda entre 5 y 15 minutos en procesar el build antes de que aparezca en TestFlight."
