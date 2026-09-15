@@ -32,25 +32,17 @@ jobs:
       - name: Regenerar íconos de iOS desde assets/icon.png
         run: npx @capacitor/assets generate --ios || echo "assets/icon.png no encontrado — se mantienen los íconos actuales"
 
-      - name: Asegurar CocoaPods
-        # Las imagenes recientes de macOS ya no traen CocoaPods preinstalado.
-        # Sin el, "cap add ios" genera el proyecto pero NO crea el
-        # App.xcworkspace (que es obra de pod install), y xcodebuild falla mas
-        # adelante con "does not exist" sin decir por que.
-        run: |
-          if command -v pod >/dev/null 2>&1; then
-            echo "CocoaPods ya disponible: $(pod --version)"
-          else
-            echo "CocoaPods no esta en el runner — instalando"
-            brew install cocoapods
-            pod --version
-          fi
-
       - name: Generar el proyecto iOS
         # La carpeta ios/ no vive en el repo: se genera en cada ejecucion.
         # Eso mantiene el repo limpio, pero obliga a volver a aplicar por
         # script todo lo que normalmente se configuraria a mano en Xcode
         # (permisos, version, esquema) — es lo que hacen los pasos siguientes.
+        #
+        # Capacitor 8 integra los plugins con Swift Package Manager, no con
+        # CocoaPods: escribe un Package.swift y NO genera Podfile ni
+        # App.xcworkspace. Por eso xcodebuild tiene que apuntar al .xcodeproj.
+        # Se detecta cual de los dos existe en vez de asumirlo, asi el
+        # workflow sigue sirviendo si algun dia vuelven a los pods.
         run: |
           set -e
           if [ ! -d ios ]; then
@@ -58,15 +50,18 @@ jobs:
           else
             npx cap sync ios
           fi
-          # pod install explicito: no confiar en que cap lo haya corrido.
-          # Es idempotente, asi que no molesta si ya se ejecuto.
-          cd ios/App
-          pod install --repo-update
-          cd -
           echo "── Contenido de ios/App ──"
           ls -la ios/App
-          test -d ios/App/App.xcworkspace \
-            || { echo "No se genero App.xcworkspace — pod install no dejo el workspace."; exit 1; }
+          if [ -d ios/App/App.xcworkspace ]; then
+            echo "XCODE_CONTAINER=-workspace ios/App/App.xcworkspace" >> "$GITHUB_ENV"
+            echo "Usando workspace (CocoaPods)"
+          elif [ -d ios/App/App.xcodeproj ]; then
+            echo "XCODE_CONTAINER=-project ios/App/App.xcodeproj" >> "$GITHUB_ENV"
+            echo "Usando proyecto (Swift Package Manager)"
+          else
+            echo "No se genero ni App.xcworkspace ni App.xcodeproj."
+            exit 1
+          fi
 
       - name: Declarar permisos y encriptación en Info.plist
         # Sin estos textos la app NO pide el permiso: se cae en el momento en
@@ -134,7 +129,7 @@ jobs:
           # El heredoc de arriba va indentado dentro del YAML; se limpia acá.
           sed -i '' -E 's/^ {10}//' "$DIR/App.xcscheme"
           echo "Esquemas disponibles:"
-          xcodebuild -workspace ios/App/App.xcworkspace -list
+          xcodebuild $XCODE_CONTAINER -list
 
       - name: Preparar la clave de App Store Connect
         # altool busca el .p8 en rutas fijas y con un nombre exacto
@@ -159,7 +154,7 @@ jobs:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcodebuild -workspace ios/App/App.xcworkspace \
+          xcodebuild $XCODE_CONTAINER \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
