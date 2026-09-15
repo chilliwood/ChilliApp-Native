@@ -3988,7 +3988,15 @@ function openPenguinDialog(){
   // bloquea el acceso al asesor es berry-chat.js, verificando el plan real
   // del cliente en el servidor, no lo que diga cfg acá.
   document.getElementById('berry-chat-wrap').style.display=isCompleta?'block':'none';
-  document.getElementById('berry-chat-upsell').style.display=isCompleta?'none':'block';
+  // El aviso de upsell nombra el plan Completa y describe lo que se gana al
+  // contratarlo — exactamente el tipo de contenido que la guideline 3.1.1 de
+  // Apple no admite dentro de la app. En iOS no se muestra: quien no tenga el
+  // asesor simplemente ve el tip de siempre, sin ninguna referencia a planes.
+  // Ver la nota de ES_IOS más arriba.
+  document.getElementById('berry-chat-upsell').style.display=(!isCompleta && !ES_IOS)?'block':'none';
+  // Sin chat ni aviso, la pestaña "Conversación" abriría un panel vacío —
+  // se esconde para que no quede un botón que no lleva a nada.
+  document.getElementById('berry-tab-chat').style.display=(!isCompleta && ES_IOS)?'none':'';
   showTip();
   if(isCompleta){
     loadBerryHistory();
