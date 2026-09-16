@@ -8470,7 +8470,7 @@ nativa empaquetada con Capacitor, no en el navegador). -->
     <div id="chilliCamGuionTexto" style="color:#fff;font-size:21px;line-height:1.55;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.9);white-space:pre-wrap;"></div>
   </div>
   <div style="position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;display:flex;gap:10px;">
-    <button onclick="chilliCamToggleDebug()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">🐛</button>
+    <button id="chilliCamDebugBtn" onclick="chilliCamToggleDebug()" style="display:none;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">🐛</button>
     <button onclick="chilliCamCambiarCamara()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">🔄</button>
     <button onclick="chilliCamCerrar()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">✕</button>
   </div>
@@ -8507,6 +8507,19 @@ nativa empaquetada con Capacitor, no en el navegador). -->
 // (definido por chilliapp-camera.js, ver arriba). Todo async/await porque el
 // puente de Capacitor es 100% basado en promesas.
 var chilliCamScrollRAF=null, chilliCamVelocidadActual=32, chilliCamGrabando=false, chilliCamUltimoResultado=null;
+
+// ── INTERRUPTOR DEL PANEL DE DEPURACION DE LA CAMARA ──
+// En false (produccion) el boton 🐛 no se muestra en ninguna plataforma. Un
+// boton de depuracion a la vista es motivo de rechazo en App Store por la
+// guideline 2.2 (funcionalidad incompleta o de desarrollo), y a un cliente no
+// le aporta nada: abre un panel con registros tecnicos.
+//
+// El registro y el panel SIGUEN en el codigo a proposito. La camara nativa es
+// la parte mas fragil de la app —depende de plugins, permisos y diferencias
+// entre iOS y Android—, asi que cuando aparezca un problema dificil de
+// reproducir, basta poner esto en true, recompilar, y vuelve el boton con todo
+// el registro de la sesion.
+var CHILLI_CAM_DEBUG=false;
 
 // Punto de entrada único desde el botón "Grabar" del guion — decide entre la
 // pantalla nativa con overlay (app empaquetada) o el respaldo de cámara del
@@ -8614,6 +8627,12 @@ async function abrirCamaraTeleprompter(){
   chilliCamCalcularRangosCorchetes();
   document.getElementById('chilliCamGuion').scrollTop=0;
   document.getElementById('chilliCamPreview').style.display='none';
+  var dbgBtn=document.getElementById('chilliCamDebugBtn');
+  if(dbgBtn)dbgBtn.style.display=CHILLI_CAM_DEBUG?'':'none';
+  if(!CHILLI_CAM_DEBUG){
+    var dbgPanel=document.getElementById('chilliCamDebugPanel');
+    if(dbgPanel)dbgPanel.style.display='none';
+  }
   scr.style.display='block';
   chilliCamFondoTransparente(true);
   try{
