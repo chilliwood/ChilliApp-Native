@@ -29,9 +29,6 @@ jobs:
       - name: Instalar dependencias (npm)
         run: npm install
 
-      - name: Regenerar íconos de iOS desde assets/icon.png
-        run: npx @capacitor/assets generate --ios || echo "assets/icon.png no encontrado — se mantienen los íconos actuales"
-
       - name: Generar el proyecto iOS
         # La carpeta ios/ no vive en el repo: se genera en cada ejecucion.
         # Eso mantiene el repo limpio, pero obliga a volver a aplicar por
@@ -62,6 +59,19 @@ jobs:
             echo "No se genero ni App.xcworkspace ni App.xcodeproj."
             exit 1
           fi
+
+      - name: Regenerar iconos de iOS desde assets/icon.png
+        # ESTE PASO TIENE QUE IR DESPUES de generar el proyecto. Antes corria
+        # primero y por eso la app salia con el icono generico de Capacitor:
+        # @capacitor/assets escribe en ios/App/App/Assets.xcassets, que todavia
+        # no existia. En Android nunca se noto porque la carpeta android/ si
+        # vive en el repo. No se silencia el error: si falla, se ve por que.
+        run: |
+          echo "── Contenido de assets/ ──"
+          ls -la assets || echo "(no hay carpeta assets)"
+          npx @capacitor/assets generate --ios || echo "AVISO: la generacion de iconos fallo — revisar el mensaje de arriba"
+          echo "── Iconos resultantes ──"
+          ls -la ios/App/App/Assets.xcassets/AppIcon.appiconset || echo "(no se genero el appiconset)"
 
       - name: Declarar permisos y encriptación en Info.plist
         # Sin estos textos la app NO pide el permiso: se cae en el momento en
