@@ -761,6 +761,9 @@ if('serviceWorker' in navigator){
 // compras; lo que no puede aparecer son los planes de la app.
 var ES_IOS = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios');
 
+// ¿Estamos dentro de la app empaquetada (iOS o Android), en vez del navegador?
+var ES_NATIVO = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
 // Captura el prompt nativo de instalación de Chrome — se guarda para dispararlo
 // desde un botón propio en el dashboard, en vez de depender de que el usuario
 // encuentre "Agregar a pantalla de inicio" en el menú de 3 puntos.
@@ -3214,7 +3217,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   const u=S.get('chw_sb_u'),k=S.get('chw_sb_k'),c=S.get('chw_sb_c');
   if(u&&k&&c){sbCid=c;sbToken=S.get('chw_token',null);}
   applyConfig();renderAll();initContextoBtns();
-  if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone&&!S.get('chw_b'))document.getElementById('ib').style.display='flex';
+  // Aviso de "Compartir → Agregar a inicio": es para quien abre la PWA en
+  // Safari. Dentro de la app empaquetada no aplica —ya esta instalada— y
+  // encima invitaba a salir al navegador, algo que un revisor de Apple puede
+  // leer como una instruccion para abandonar la app.
+  // Se colaba porque navigator.standalone es una propiedad exclusiva de
+  // Safari: en la webview de Capacitor no existe, asi que !standalone daba
+  // true y el aviso aparecia igual.
+  if(!ES_NATIVO&&/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.navigator.standalone&&!S.get('chw_b'))document.getElementById('ib').style.display='flex';
   // Init multi-account
   initAccounts();
   // Check onboarding
