@@ -1301,7 +1301,7 @@ async function installApp(){
   <!-- BETA NAV: panel lateral — reemplaza la barra inferior + hoja "Más". Todo agrupado y
        visible de un solo toque, nada escondido dos niveles adentro. -->
   <div id="side-menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;" onclick="if(event.target===this)closeSideMenu()">
-    <div style="background:var(--card-solid);width:62%;max-width:240px;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 0;">
+    <div style="background:var(--card-solid);width:62%;max-width:240px;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(env(safe-area-inset-top),12px) 0 max(env(safe-area-inset-bottom),12px);">
       <button class="side-item" onclick="goSideTab('dashboard')">🏠 Inicio</button>
 
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Crear</div>
@@ -3515,11 +3515,23 @@ function usageSend(screen,sinceMs,useBeacon){
   var seconds=Math.round((Date.now()-sinceMs)/1000);
   if(seconds<=0)return;
   var payload=JSON.stringify({token:sbToken,screen:screen,entered_at:new Date(sinceMs).toISOString(),duration_seconds:seconds});
-  if(useBeacon&&navigator.sendBeacon){
-    navigator.sendBeacon('/.netlify/functions/track-usage',new Blob([payload],{type:'application/json'}));
-  }else{
-    fetch('/.netlify/functions/track-usage',{method:'POST',headers:{'Content-Type':'application/json'},body:payload}).catch(function(){});
+  // sendBeacon SOLO sirve sobre http(s). En la app empaquetada la pagina se
+  // sirve con el esquema propio de Capacitor (capacitor:// en iOS), asi que
+  // lanza "Beacons can only be sent over HTTP(S)" — ese era el error rojo que
+  // aparecia al azar, siempre al cambiar de pantalla o al salir de la app.
+  // Ademas sendBeacon se saltaria el puente de fetch que reescribe las rutas
+  // /.netlify/functions/... hacia el servidor real, asi que en nativo la
+  // llamada no habria llegado a ninguna parte aunque no fallara.
+  var esWeb=(location.protocol==='http:'||location.protocol==='https:');
+  if(useBeacon&&esWeb&&navigator.sendBeacon){
+    try{
+      navigator.sendBeacon('/.netlify/functions/track-usage',new Blob([payload],{type:'application/json'}));
+      return;
+    }catch(e){/* si falla, sigue por fetch */}
   }
+  // keepalive permite que la peticion sobreviva al cierre de la pantalla,
+  // que es justo lo que aportaba sendBeacon.
+  fetch('/.netlify/functions/track-usage',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}).catch(function(){});
 }
 function usageFlushCurrent(useBeacon){
   if(!usageTrack.screen)return;
@@ -4667,7 +4679,7 @@ async function genGuion(){
   if(planLimitReached('guion')){document.getElementById('gbox').style.display='none';showMsg('Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes ('+PLAN_LIMITS[cfg.plan||'gratis'].guiones+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.');return;}
   checkProdDesc(v);
   const btn=document.getElementById('bguion'),box=document.getElementById('gbox'),txt=document.getElementById('gtxt');
-  btn.disabled=true;btn.textContent='Generando...';box.style.display='block';txt.value='Verificando tu plan...';
+  btn.disabled=true;btn.textContent='Generando...';box.style.display='block';txt.value='Preparando...';
   document.getElementById('fmsg').style.display='none';guion='';
   const reserva=await reservarCupo('guion');
   if(!reserva.ok){
@@ -5415,7 +5427,7 @@ function useSug(t){
 async function genGuionSmart(){
   const p=lastS;if(!p)return;
   if(planLimitReached('guion')){var sgbox=document.getElementById('sgbox');if(sgbox)sgbox.style.display='none';showToast('Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes.');return;}
-  const box=document.getElementById('sgbox'),txt=document.getElementById('sgtxt');box.style.display='block';txt.value='Verificando tu plan...';guionS='';
+  const box=document.getElementById('sgbox'),txt=document.getElementById('sgtxt');box.style.display='block';txt.value='Preparando...';guionS='';
   const reserva=await reservarCupo('guion');
   if(!reserva.ok){box.style.display='none';showToast(reserva.error||'No se pudo generar el guion.');return;}
   txt.value='Escribiendo...';
@@ -6238,7 +6250,7 @@ async function genCarrusel(){
     var contexto=document.getElementById('car-contexto').value;
     if(!tema){msg.textContent='Selecciona un tema.';msg.style.color='var(--tx2)';msg.style.display='block';return;}
     if(planLimitReached('carrusel')){msg.textContent='Alcanzaste el límite de carruseles de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes ('+PLAN_LIMITS[cfg.plan||'gratis'].carruseles+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.';msg.style.color='#f87171';msg.style.display='block';result.style.display='none';return;}
-    msg.style.display='block';msg.style.color='var(--tx2)';msg.textContent='Verificando tu plan...';
+    msg.style.display='block';msg.style.color='var(--tx2)';msg.textContent='Preparando...';
     var reservaCar=await reservarCupo('carrusel');
     if(!reservaCar.ok){msg.textContent=reservaCar.error||'No se pudo generar el carrusel.';msg.style.color='#f87171';result.style.display='none';return;}
     btn.disabled=true;btn.textContent='Generando...';msg.style.display='none';result.style.display='none';
