@@ -19,7 +19,12 @@ window.addEventListener('unhandledrejection',function(ev){
 });
 </script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<!-- viewport-fit=cover es obligatorio para que env(safe-area-inset-*) devuelva
+     valores reales en iOS. Sin el, iOS los reporta como 0 y toda la app se mete
+     debajo del notch y de la barra inferior del iPhone: los botones de arriba y
+     el icono de Berry Chilli quedan tapados por la isla dinamica y cuesta
+     tocarlos. El CSS ya estaba escrito para respetarlos; solo faltaba activarlo. -->
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -8449,7 +8454,7 @@ detrás del WebView, guion de ChilliApp encima. Solo se abre si
 window.ChilliCamera.disponible() es true (o sea, corriendo dentro de la app
 nativa empaquetada con Capacitor, no en el navegador). -->
 <div id="chilliCamScreen" style="display:none;position:fixed;inset:0;z-index:9999;background:transparent;">
-  <div id="chilliCamGuion" style="position:absolute;top:8%;left:6%;right:6%;max-height:38%;overflow:hidden;">
+  <div id="chilliCamGuion" style="position:absolute;top:calc(max(16px,env(safe-area-inset-top)) + 56px);left:6%;right:6%;max-height:38%;overflow:hidden;">
     <div id="chilliCamGuionTexto" style="color:#fff;font-size:21px;line-height:1.55;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.9);white-space:pre-wrap;"></div>
   </div>
   <div style="position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;display:flex;gap:10px;">
@@ -8619,6 +8624,13 @@ function chilliCamEmpezarScroll(){
   // toque, sin tener que destruir y recrear ningún temporizador.
   cancelAnimationFrame(chilliCamScrollRAF);
   var ultimo=null;
+  // Posicion acumulada en una variable propia, NO leyendo scrollTop en cada
+  // cuadro. A velocidad normal el avance es de ~0,3 px por cuadro, y WebKit
+  // (iOS) devuelve scrollTop redondeado al entero: con `scrollTop += 0,3` la
+  // fraccion se perdia en cada iteracion y el teleprompter no se movia nunca,
+  // en ninguna velocidad. En Chrome funcionaba porque conserva subpixeles.
+  // Acumulando aca, la fraccion sobrevive y el redondeo solo ocurre al pintar.
+  var posScroll=null;
   function paso(t){
     if(!document.getElementById('chilliCamScreen')||document.getElementById('chilliCamScreen').style.display==='none')return;
     if(chilliCamGrabando){
@@ -8627,6 +8639,7 @@ function chilliCamEmpezarScroll(){
       ultimo=t;
       var box=document.getElementById('chilliCamGuion');
       if(box){
+        if(posScroll===null)posScroll=box.scrollTop;
         // Acelera solo mientras pasa por un tramo entre corchetes (apuntes de
         // producción, no texto para leer) — así no se pierde tiempo real de
         // grabación esperando que termine de desplazarse una instrucción.
@@ -8635,10 +8648,14 @@ function chilliCamEmpezarScroll(){
         var multiplicador=enCorchete?2.4:1;
         // chilliCamVelocidadActual va de 5 (lento) a 65 (rápido) — se traduce
         // a píxeles por segundo, leído fresco en cada cuadro.
-        box.scrollTop+=(chilliCamVelocidadActual*0.6)*multiplicador*(dt/1000);
+        posScroll+=(chilliCamVelocidadActual*0.6)*multiplicador*(dt/1000);
+        var maxScroll=box.scrollHeight-box.clientHeight;
+        if(posScroll>maxScroll)posScroll=maxScroll;
+        box.scrollTop=posScroll;
       }
     }else{
       ultimo=null;
+      posScroll=null;
     }
     chilliCamScrollRAF=requestAnimationFrame(paso);
   }
@@ -8722,9 +8739,27 @@ async function chilliCamCerrar(){
   cancelAnimationFrame(chilliCamScrollRAF);
   chilliCamGrabando=false;
   chilliCamFondoTransparente(false);
-  try{await window.ChilliCamera.detener(true);}catch(e){}
+  // La interfaz se oculta ANTES de tocar la cámara nativa, a propósito.
+  // Antes era al revés: se esperaba a detener() y recién después se ocultaba
+  // la pantalla. En iOS esa llamada se queda colgada (no falla, simplemente
+  // nunca resuelve), así que el await no volvía nunca, la pantalla no se
+  // ocultaba, y como el aviso de "¡Guardado!" cubre todo con z-index 5, no
+  // quedaba ningún botón tocable: la app se bloqueaba sin salida. El
+  // try/catch no servía de nada, porque atrapa promesas rechazadas, no
+  // promesas que nunca terminan.
+  var exito=document.getElementById('chilliCamExito');
+  if(exito)exito.style.display='none';
+  var prev=document.getElementById('chilliCamPreview');
+  if(prev)prev.style.display='none';
   var scr=document.getElementById('chilliCamScreen');
   if(scr)scr.style.display='none';
+  // Y con límite de tiempo, para no dejar una promesa colgada dando vueltas.
+  try{
+    await Promise.race([
+      window.ChilliCamera.detener(true),
+      new Promise(function(res){setTimeout(res,3000);})
+    ]);
+  }catch(e){chilliCamLog('Cerrar: error al detener la cámara — '+(e&&e.message));}
 }
 </script>
 
