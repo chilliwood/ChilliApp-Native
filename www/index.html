@@ -1118,7 +1118,7 @@ async function installApp(){
       <div style="width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);"></div>
     </div>
     <h1 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.2;">¿Qué es ChilliApp?</h1>
-    <p style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:24px;">Tu planificador mensual de contenido — esto es lo que hace por ti, y lo que no.</p>
+    <p style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:24px;">Tu planificador mensual de contenido — esto es lo que hace por ti.</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
       <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:14px;display:flex;gap:10px;align-items:flex-start;">
         <span style="font-size:15px;">🗓</span>
@@ -1137,7 +1137,7 @@ async function installApp(){
         <span style="font-size:13px;color:#fff;line-height:1.5;">No graba ni publica por ti — eso lo haces tú</span>
       </div>
     </div>
-    <button onclick="obWalkShow(2)" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Siguiente →</button>
+    <button onclick="ES_IOS?obWalkFinish():obWalkShow(2)" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Siguiente →</button>
   </div>
 
   <!-- Paso 2: mapa completo, con etiquetas de plan genéricas (Gratis / De pago / Todos) -->
@@ -1147,7 +1147,7 @@ async function installApp(){
       <div style="width:28px;height:4px;border-radius:2px;background:#6366f1;"></div>
     </div>
     <h1 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.2;">Tu mapa en ChilliApp</h1>
-    <p style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:18px;">Todo lo que existe hoy — algunas cosas se desbloquean con otros planes.</p>
+    <p style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:18px;">Todo lo que está disponible en tu app.</p>
     <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">
       <div style="display:flex;gap:10px;align-items:center;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:10px;">
         <span style="font-size:17px;">➕</span>
