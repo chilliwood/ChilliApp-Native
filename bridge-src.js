@@ -24,6 +24,7 @@ import { CameraPreview } from '@capgo/camera-preview';
 import { Share } from '@capacitor/share';
 import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 // enableVideoMode:true es obligatorio en Android para poder grabar video
 // (confirmado en la definición de tipos del plugin) — sin esto, startRecordVideo
@@ -132,6 +133,33 @@ async function guardarOCompartir(rutaVideo) {
   });
 }
 
+// Botón "atrás" de Android. Sin este plugin (@capacitor/app) la app nativa nunca
+// se entera de que se apretó el botón: Android simplemente cierra la app, sin
+// dejar que la página cierre el menú lateral, un modal, etc. Con el listener
+// registrado, el control pasa a window.chwAlPresionarAtras (definida en
+// index.html), que decide si cierra algo, vuelve a Inicio, avisa "presiona de
+// nuevo para salir" o pide salir de verdad (salirApp).
+let _atrasRegistrado = false;
+async function registrarBotonAtras() {
+  if (_atrasRegistrado) return;
+  _atrasRegistrado = true;
+  try {
+    await App.addListener('backButton', () => {
+      if (typeof window.chwAlPresionarAtras === 'function') {
+        window.chwAlPresionarAtras();
+      } else {
+        App.exitApp(); // red de seguridad: si la página no definió el manejador, se comporta como siempre
+      }
+    });
+  } catch (e) {
+    _atrasRegistrado = false;
+  }
+}
+async function salirApp() {
+  return await App.exitApp();
+}
+if (Capacitor.isNativePlatform()) registrarBotonAtras();
+
 window.ChilliCamera = {
   disponible: () => Capacitor.isNativePlatform(),
   iniciar,
@@ -141,5 +169,6 @@ window.ChilliCamera = {
   cambiarCamara,
   estaCorriendo,
   guardarEnGaleria,
-  guardarOCompartir
+  guardarOCompartir,
+  salirApp
 };
