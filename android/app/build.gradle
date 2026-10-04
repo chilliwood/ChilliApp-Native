@@ -11,8 +11,8 @@ android {
         // mismo Package Name) — este build tiene que usar un número más
         // alto o Play Console lo rechaza con "ya se usó el código de la
         // versión X". Subir este número en cada versión futura que subas.
-        versionCode 7
-        versionName "1.0"
+        versionCode 8
+        versionName "1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
