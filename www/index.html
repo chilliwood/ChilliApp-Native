@@ -755,7 +755,9 @@ if('serviceWorker' in navigator){
 // compras, y esa excepción de "botones y enlaces externos" que se abrió en 2025
 // aplica SOLO a la tienda de Estados Unidos — Chile sigue con la regla anterior.
 // Por eso en iOS no se muestra nada que ofrezca subir de plan ni que lleve a
-// contratarlo por WhatsApp. En web y Android todo sigue exactamente igual.
+// contratarlo por WhatsApp. En la web (navegador/PWA) todo sigue igual.
+// Desde la versión 8 de Android la app nativa de Android se trata igual que la
+// de iOS: ver SIN_PLANES más abajo, la bandera que usa todo el código de planes.
 // Ojo: agendar sesiones SÍ se mantiene en iOS — son servicios del mundo real
 // (grabación, producción), que Apple excluye expresamente de su sistema de
 // compras; lo que no puede aparecer son los planes de la app.
@@ -763,6 +765,12 @@ var ES_IOS = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capac
 
 // ¿Estamos dentro de la app empaquetada (iOS o Android), en vez del navegador?
 var ES_NATIVO = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+// Bandera única para "en esta app no se ofrecen planes de pago": toda la app
+// empaquetada (iOS y Android). La web sigue mostrando todo. Mientras no haya un
+// sistema de cobro definido, la app nativa no vende ni menciona subir de plan.
+// Si algún día vuelven los planes en Android, basta con cambiar esta línea.
+var SIN_PLANES = ES_NATIVO;
 
 // Captura el prompt nativo de instalación de Chrome — se guarda para dispararlo
 // desde un botón propio en el dashboard, en vez de depender de que el usuario
@@ -1113,7 +1121,7 @@ async function installApp(){
 
   <!-- Paso 1: alcance -->
   <div id="ob-walk-1">
-    <div style="display:flex;gap:6px;margin-bottom:28px;justify-content:center;">
+    <div id="ob-walk-1-dots" style="display:flex;gap:6px;margin-bottom:28px;justify-content:center;">
       <div style="width:28px;height:4px;border-radius:2px;background:#6366f1;"></div>
       <div style="width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);"></div>
     </div>
@@ -1137,7 +1145,7 @@ async function installApp(){
         <span style="font-size:13px;color:#fff;line-height:1.5;">No graba ni publica por ti — eso lo haces tú</span>
       </div>
     </div>
-    <button onclick="ES_IOS?obWalkFinish():obWalkShow(2)" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Siguiente →</button>
+    <button id="ob-walk-1-btn" onclick="SIN_PLANES?obWalkFinish():obWalkShow(2)" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">Siguiente →</button>
   </div>
 
   <!-- Paso 2: mapa completo, con etiquetas de plan genéricas (Gratis / De pago / Todos) -->
@@ -2024,6 +2032,13 @@ const PLAN_LIMITS={
 function usageThisMonth(){
   return{guiones:cfg.guiones_mes||0,carruseles:cfg.carruseles_mes||0};
 }
+// Texto del aviso cuando se llega al límite mensual. En la app nativa no se
+// menciona el plan ni se manda a "Mejorar mi plan" (ese botón no existe ahí).
+function textoLimite(tipo){
+  var p=PLAN_LIMITS[cfg.plan||'gratis'];
+  if(SIN_PLANES)return 'Alcanzaste el límite mensual de '+tipo+' ('+p[tipo]+'). Vuelve a intentarlo el próximo mes.';
+  return 'Alcanzaste el límite de '+tipo+' de tu plan '+p.label+' este mes ('+p[tipo]+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.';
+}
 function planLimitReached(tipo){
   var plan=PLAN_LIMITS[cfg.plan||'gratis'];
   if(tipo==='guion')return(cfg.guiones_mes||0)>=plan.guiones;
@@ -2122,15 +2137,15 @@ function renderTabLocked(tabId,label,planNecesario){
   if(!el)return;
   el.innerHTML='<div style="max-width:360px;margin:80px auto 0;text-align:center;padding:24px;">'
     +'<div style="font-size:36px;margin-bottom:12px;">🔒</div>'
-    +'<div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:8px;">'+label+' es parte del plan '+planNecesario+'</div>'
-    +(ES_IOS
-      ? '<div style="font-size:13px;color:var(--tx2);">Esta sección no está incluida en tu plan actual.</div>'
+    +'<div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:8px;">'+(SIN_PLANES?label+' no está incluido en tu cuenta':label+' es parte del plan '+planNecesario)+'</div>'
+    +(SIN_PLANES
+      ? '<div style="font-size:13px;color:var(--tx2);">Esta sección no está incluida en tu cuenta.</div>'
       : '<div style="font-size:13px;color:var(--tx2);margin-bottom:16px;">Pregúntale a Chilliwood por un cambio de plan para desbloquear esta sección.</div>'
         +'<button class="btn btn-ai" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>')
     +'</div>';
 }
 function openUpgradeModal(){
-  if(ES_IOS)return; // ver nota de ES_IOS arriba — en iOS no se ofrece subir de plan
+  if(SIN_PLANES)return; // ver nota de SIN_PLANES arriba — en iOS no se ofrece subir de plan
   var planActual=cfg.plan||'gratis';
   var planes=[
     {id:'gratis',label:'Gratis',guiones:5,carruseles:1,stats:false,insights:false,sugerir:false},
@@ -2152,7 +2167,7 @@ function openUpgradeModal(){
 }
 function closeUpgradeModal(){document.getElementById('upgrade-modal').classList.remove('open');}
 function contactarUpgrade(){
-  if(ES_IOS)return; // ver nota de ES_IOS arriba — este es justo el enlace externo que Apple no permite
+  if(SIN_PLANES)return; // ver nota de SIN_PLANES arriba — este es justo el enlace externo que Apple no permite
   var planActual=PLAN_LIMITS[cfg.plan||'gratis'].label;
   var msg=encodeURIComponent('Hola Chilliwood, estoy en el plan '+planActual+' de ChilliApp y quiero saber sobre subir de plan.');
   window.open('https://wa.me/56998013008?text='+msg,'_blank');
@@ -2747,6 +2762,12 @@ function obShowWalkthrough(){
   setTimeout(function(){obWalkShow(1);},300);
 }
 function obWalkShow(n){
+  // En la app nativa el recorrido es de un solo paso (sin el mapa con planes):
+  // se esconden los puntos de progreso y el botón dice "Listo".
+  if(SIN_PLANES){
+    var d1=document.getElementById('ob-walk-1-dots');if(d1)d1.style.display='none';
+    var b1=document.getElementById('ob-walk-1-btn');if(b1)b1.textContent='Listo →';
+  }
   [1,2].forEach(function(i){var el=document.getElementById('ob-walk-'+i);if(el)el.style.display=(i===n?'block':'none');});
   var w=document.getElementById('ob-walk');if(w)w.style.display='block';
 }
@@ -3029,12 +3050,12 @@ function renderDashboard(){
   var uso=usageThisMonth();
   html+='<div class="card" style="padding:14px 16px;margin-bottom:14px;">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-    +'<span style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;">Plan '+plan.label+'</span>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;">'+(SIN_PLANES?'Tu uso este mes':'Plan '+plan.label)+'</span>'
     +'</div>'
     +'<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tx);margin-bottom:6px;"><span>📝 Guiones este mes</span><strong>'+uso.guiones+' / '+plan.guiones+'</strong></div>'
     +'<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tx);"><span>🎠 Carruseles este mes</span><strong>'+uso.carruseles+' / '+plan.carruseles+'</strong></div>'
     +'</div>';
-  if((cfg.plan||'gratis')!=='completa' && !ES_IOS){
+  if((cfg.plan||'gratis')!=='completa' && !SIN_PLANES){
     html+='<button class="btn btn-ai" onclick="openUpgradeModal()" style="width:100%;margin-bottom:14px;">⬆️ Mejorar mi plan</button>';
   }
 
@@ -3132,45 +3153,83 @@ function initDashboard(){
 }
 
 // === BOTÓN ATRÁS DE ANDROID ===
-// Si hay algún overlay abierto (onboarding, Mis cuentas, Berry Chilli,
-// calendario), el botón atrás lo cierra en vez de salir de la app. Si no hay nada
-// abierto, pide un segundo atrás para salir de verdad (como la mayoría de las apps).
+// Qué pasa al apretar "atrás": 1) si hay algo abierto (menú lateral, Mis cuentas,
+// un modal, la cámara...) se cierra; 2) si estás en otra pantalla, vuelve a
+// Inicio; 3) en Inicio pide apretar una segunda vez (dentro de 2 segundos) para
+// salir de verdad.
+// Dos caminos llegan acá: en la app nativa de Android lo llama el puente
+// (chilliapp-camera.js, plugin @capacitor/app) vía window.chwAlPresionarAtras;
+// en el navegador / PWA se usa el historial (popstate). Ojo: sin el plugin
+// @capacitor/app, la app nativa NUNCA se entera del botón atrás y Android
+// cierra la app directo — por eso el plugin es parte del build.
+function chwAbierto(id,clase){var e=document.getElementById(id);return !!(e&&e.classList.contains(clase));}
 function chwCloseTopOverlay(){
-  if(document.getElementById('onboarding').style.display==='block'){
-    document.getElementById('onboarding').style.display='none';
+  // Cámara con teleprompter (pantalla completa, por encima de todo)
+  var cam=document.getElementById('chilliCamScreen');
+  if(cam&&cam.style.display&&cam.style.display!=='none'){
+    if(typeof chilliCamGrabando!=='undefined'&&chilliCamGrabando){showToast('Detén la grabación antes de salir');return true;}
+    chilliCamCerrar();
+    return true;
+  }
+  if(chwAbierto('accounts-overlay','open')){closeAccounts();return true;}
+  if(chwAbierto('delcuenta-modal','open')){closeDelCuenta();return true;}
+  var tr=document.getElementById('temas-review-overlay');
+  if(tr&&tr.style.display==='flex'){closeTemasReview();return true;}
+  if(chwAbierto('upgrade-modal','open')){closeUpgradeModal();return true;}
+  if(chwAbierto('cal-sugerir-modal','open')){closeCalSugerirModal();return true;}
+  if(chwAbierto('cal-modal','open')){closeCalModal();return true;}
+  if(chwAbierto('bov','open')){document.getElementById('bov').classList.remove('open');return true;}
+  var sm=document.getElementById('side-menu-overlay');
+  if(sm&&sm.style.display==='block'){closeSideMenu();return true;}
+  if(chwAbierto('po','open')){document.getElementById('po').classList.remove('open');return true;}
+  if(chwAbierto('pinguin-overlay','show')){closePenguinDialog();return true;}
+  var ow=document.getElementById('ob-walk');
+  if(ow&&ow.style.display==='block'){
+    // El recorrido no se puede saltar con "atrás": del paso 2 vuelve al 1, y en
+    // el 1 simplemente no hace nada (pero tampoco saca al usuario de la app).
+    var w2=document.getElementById('ob-walk-2');
+    if(w2&&w2.style.display==='block')obWalkShow(1);
+    return true;
+  }
+  var ob=document.getElementById('onboarding');
+  if(ob&&ob.style.display==='block'){
+    var s0=document.getElementById('ob-step-0');
+    if(!sbCid){
+      // Sin sesión este overlay ES la pantalla de entrada: "atrás" no la cierra
+      // (dejaría la app vacía). Desde correo/código/clave vuelve al selector; en
+      // el selector no hay nada que cerrar, así que sigue la lógica de salida.
+      if(s0&&s0.style.display==='none'){obBackToSelector();return true;}
+      return false;
+    }
+    // Con sesión (agregando un negocio / terminando la configuración): atrás
+    // cancela, igual que los botones "Cancelar" del propio onboarding.
+    ob.style.display='none';
     obHideAllEntrySteps();
-    return true;
-  }
-  if(document.getElementById('accounts-overlay').classList.contains('open')){
-    closeAccounts();
-    return true;
-  }
-  if(document.getElementById('pinguin-overlay').classList.contains('show')){
-    closePenguinDialog();
-    return true;
-  }
-  if(document.getElementById('cal-modal').classList.contains('open')){
-    closeCalModal();
-    return true;
-  }
-  if(document.getElementById('cal-sugerir-modal').classList.contains('open')){
-    closeCalSugerirModal();
     return true;
   }
   return false;
 }
 var chwBackArmed=false,chwBackTimer=null;
-window.addEventListener('popstate',function(){
-  if(chwCloseTopOverlay()){
-    history.pushState(null,'',location.href); // re-arma para el próximo atrás
-    return;
-  }
-  if(chwBackArmed)return; // segundo atrás dentro de la ventana: se deja salir de verdad
+// Devuelve 'cerro' | 'inicio' | 'avisar' | 'salir'
+function chwManejarAtras(){
+  if(chwCloseTopOverlay())return 'cerro';
+  if(typeof currentTab!=='undefined'&&currentTab&&currentTab!=='dashboard'){showTab('dashboard');return 'inicio';}
+  if(chwBackArmed)return 'salir'; // segundo atrás dentro de la ventana: se deja salir de verdad
   chwBackArmed=true;
   showToast('Presiona atrás de nuevo para salir');
-  history.pushState(null,'',location.href);
   clearTimeout(chwBackTimer);
   chwBackTimer=setTimeout(function(){chwBackArmed=false;},2000);
+  return 'avisar';
+}
+// App nativa de Android: la llama el listener 'backButton' del puente.
+window.chwAlPresionarAtras=function(){
+  var r=chwManejarAtras();
+  if(r==='salir'&&window.ChilliCamera&&window.ChilliCamera.salirApp)window.ChilliCamera.salirApp();
+};
+// Navegador / PWA: el botón atrás saca una entrada del historial.
+window.addEventListener('popstate',function(){
+  if(chwManejarAtras()==='salir')return;
+  history.pushState(null,'',location.href); // re-arma para el próximo atrás
 });
 history.pushState(null,'',location.href); // guardia inicial
 
@@ -4019,11 +4078,11 @@ function openPenguinDialog(){
   // contratarlo — exactamente el tipo de contenido que la guideline 3.1.1 de
   // Apple no admite dentro de la app. En iOS no se muestra: quien no tenga el
   // asesor simplemente ve el tip de siempre, sin ninguna referencia a planes.
-  // Ver la nota de ES_IOS más arriba.
-  document.getElementById('berry-chat-upsell').style.display=(!isCompleta && !ES_IOS)?'block':'none';
+  // Ver la nota de SIN_PLANES más arriba.
+  document.getElementById('berry-chat-upsell').style.display=(!isCompleta && !SIN_PLANES)?'block':'none';
   // Sin chat ni aviso, la pestaña "Conversación" abriría un panel vacío —
   // se esconde para que no quede un botón que no lleva a nada.
-  document.getElementById('berry-tab-chat').style.display=(!isCompleta && ES_IOS)?'none':'';
+  document.getElementById('berry-tab-chat').style.display=(!isCompleta && SIN_PLANES)?'none':'';
   showTip();
   if(isCompleta){
     loadBerryHistory();
@@ -4686,7 +4745,7 @@ function logErrorSilencioso(funcion,detalle){
 async function genGuion(){
   guardarOtroTema('tema','tema-otro','__otro_tema__');guardarOtroProducto();
   const v=getF();if(!valF(v)){showMsg('Completa todos los campos.');return;}
-  if(planLimitReached('guion')){document.getElementById('gbox').style.display='none';showMsg('Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes ('+PLAN_LIMITS[cfg.plan||'gratis'].guiones+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.');return;}
+  if(planLimitReached('guion')){document.getElementById('gbox').style.display='none';showMsg(textoLimite('guiones'));return;}
   checkProdDesc(v);
   const btn=document.getElementById('bguion'),box=document.getElementById('gbox'),txt=document.getElementById('gtxt');
   btn.disabled=true;btn.textContent='Generando...';box.style.display='block';txt.value='Preparando...';
@@ -4915,9 +4974,9 @@ async function doSmart(){
     document.getElementById('sres').style.display='block';
     document.getElementById('sres').innerHTML='<div style="text-align:center;padding:8px 0 4px;">'
       +'<div style="font-size:28px;margin-bottom:8px;">🔒</div>'
-      +'<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px;">Sugerencia inteligente es parte del plan Completa</div>'
-      +'<div style="font-size:12px;color:var(--tx2);'+(ES_IOS?'':'margin-bottom:12px;')+'">Se basa en el mismo análisis de desempeño que Insights.</div>'
-      +(ES_IOS?'':'<button class="btn btn-ai btn-sm" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>')
+      +'<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px;">'+(SIN_PLANES?'Sugerencia inteligente no está incluida en tu cuenta':'Sugerencia inteligente es parte del plan Completa')+'</div>'
+      +'<div style="font-size:12px;color:var(--tx2);'+(SIN_PLANES?'':'margin-bottom:12px;')+'">Se basa en el mismo análisis de desempeño que Insights.</div>'
+      +(SIN_PLANES?'':'<button class="btn btn-ai btn-sm" onclick="openUpgradeModal()">⬆️ Mejorar mi plan</button>')
       +'</div>';
     return;
   }
@@ -5436,7 +5495,7 @@ function useSug(t){
 }
 async function genGuionSmart(){
   const p=lastS;if(!p)return;
-  if(planLimitReached('guion')){var sgbox=document.getElementById('sgbox');if(sgbox)sgbox.style.display='none';showToast('Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes.');return;}
+  if(planLimitReached('guion')){var sgbox=document.getElementById('sgbox');if(sgbox)sgbox.style.display='none';showToast(SIN_PLANES?'Alcanzaste el límite mensual de guiones.':'Alcanzaste el límite de guiones de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes.');return;}
   const box=document.getElementById('sgbox'),txt=document.getElementById('sgtxt');box.style.display='block';txt.value='Preparando...';guionS='';
   const reserva=await reservarCupo('guion');
   if(!reserva.ok){box.style.display='none';showToast(reserva.error||'No se pudo generar el guion.');return;}
@@ -6259,7 +6318,7 @@ async function genCarrusel(){
     var tono=document.getElementById('car-tono').value;
     var contexto=document.getElementById('car-contexto').value;
     if(!tema){msg.textContent='Selecciona un tema.';msg.style.color='var(--tx2)';msg.style.display='block';return;}
-    if(planLimitReached('carrusel')){msg.textContent='Alcanzaste el límite de carruseles de tu plan '+PLAN_LIMITS[cfg.plan||'gratis'].label+' este mes ('+PLAN_LIMITS[cfg.plan||'gratis'].carruseles+'). Vuelve a intentarlo el próximo mes, o toca "⬆️ Mejorar mi plan" en tu Dashboard.';msg.style.color='#f87171';msg.style.display='block';result.style.display='none';return;}
+    if(planLimitReached('carrusel')){msg.textContent=textoLimite('carruseles');msg.style.color='#f87171';msg.style.display='block';result.style.display='none';return;}
     msg.style.display='block';msg.style.color='var(--tx2)';msg.textContent='Preparando...';
     var reservaCar=await reservarCupo('carrusel');
     if(!reservaCar.ok){msg.textContent=reservaCar.error||'No se pudo generar el carrusel.';msg.style.color='#f87171';result.style.display='none';return;}
@@ -7616,7 +7675,7 @@ function calRemoveDay(fechaStr){
 var calSugerirData=null;
 
 function genCalendarioSugerido(){
-  if((cfg.plan||'gratis')==='gratis'){showToast('"Sugerir días vacíos" es parte del plan Media o Completa.');return;}
+  if((cfg.plan||'gratis')==='gratis'){showToast(SIN_PLANES?'"Sugerir días vacíos" no está incluido en tu cuenta.':'"Sugerir días vacíos" es parte del plan Media o Completa.');return;}
   var freq=parseInt(document.getElementById('cal-freq').value,10);
   // "Con calma" y "Equilibrado" (≤5/sem) se reparten de lunes a viernes.
   // "Romperla en RRSS" (6-7/sem) necesita también fines de semana, no cabe solo en días hábiles.
