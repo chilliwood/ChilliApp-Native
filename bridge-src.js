@@ -125,6 +125,20 @@ async function guardarEnGaleria(rutaVideo) {
   const albumIdentifier = await obtenerOAgregarAlbum();
   return await Media.saveVideo({ path: rutaVideo, albumIdentifier, fileName: 'chilliapp-' + Date.now() });
 }
+// Guarda una IMAGEN (data URL base64, p. ej. un slide de carrusel) en el mismo
+// álbum "ChilliApp". El método de descarga del navegador (<a download> con un
+// blob:) no hace nada dentro del WebView de Android/iOS, aunque la página
+// muestre "descargado": por eso las imágenes también pasan por el puente
+// nativo, igual que los videos. El plugin de galería acepta data URLs y deduce
+// la extensión (jpg/png) del tipo MIME.
+async function guardarImagenEnGaleria(dataUrl, nombre) {
+  const albumIdentifier = await obtenerOAgregarAlbum();
+  return await Media.savePhoto({
+    path: dataUrl,
+    albumIdentifier,
+    fileName: nombre || ('chilliapp-' + Date.now())
+  });
+}
 async function guardarOCompartir(rutaVideo) {
   await Share.share({
     title: 'Video grabado en ChilliApp',
@@ -169,6 +183,7 @@ window.ChilliCamera = {
   cambiarCamara,
   estaCorriendo,
   guardarEnGaleria,
+  guardarImagenEnGaleria,
   guardarOCompartir,
   salirApp
 };
