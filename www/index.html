@@ -117,6 +117,17 @@ body{background:#f2f6ff;}
 }
 
 /* ─── SHELL ─── */
+:root{
+  /* Margen seguro bajo/sobre las barras del sistema (botones de Android, barra
+     de gestos, status bar, notch). En Android 15+ la app se dibuja DEBAJO de la
+     barra de navegación: sin descontar este margen, el último contenido y los
+     botones de abajo quedaban tapados por los botones del sistema y no se podían
+     tocar. env() lo entrega el WebView; --safe-area-inset-* lo inyecta Capacitor
+     (SystemBars). Se toma el mayor de los dos, nunca se suman. En navegador/PWA
+     de escritorio valen 0, así que nada cambia ahí. */
+  --sai-t:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));
+  --sai-b:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));
+}
 .shell{
   background:var(--bg);
   height:100vh;height:100dvh;
@@ -128,7 +139,7 @@ body{background:#f2f6ff;}
 /* ─── HEADER ─── */
 .hdr{
   background:var(--hg);
-  padding:max(env(safe-area-inset-top),14px) 16px 0;
+  padding:max(var(--sai-t,0px),14px) 16px 0;
   flex-shrink:0;
   position:relative;overflow:hidden;
   border-bottom:1px solid rgba(255,255,255,.08);
@@ -253,7 +264,7 @@ body{background:#f2f6ff;}
 .tab:hover:not(.active){color:var(--tx);}
 
 /* CONTENT */
-.cnt{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;-webkit-overflow-scrolling:touch;}
+.cnt{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;padding-bottom:calc(16px + var(--sai-b,0px));-webkit-overflow-scrolling:touch;}
 
 /* === BETA NAV: panel lateral, reemplaza el .tabs-w de 2 filas === */
 .side-item{display:flex;align-items:center;width:100%;text-align:left;background:none;border:none;font-family:inherit;font-size:13px;color:var(--tx);padding:9px 18px;cursor:pointer;gap:8px;}
@@ -500,7 +511,7 @@ body{background:#f2f6ff;}
   border:1px solid rgba(255,255,255,.14);
   border-bottom:none;
   border-radius:28px 28px 0 0;
-  padding:20px 24px 32px;
+  padding:20px 24px max(32px,calc(var(--sai-b,0px) + 16px));
   box-shadow:0 -8px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03);
   animation:dialogSlide .3s cubic-bezier(.4,0,.2,1);
 }
@@ -530,7 +541,7 @@ body{background:#f2f6ff;}
 /* ─── PERFIL OVERLAY ─── */
 #po{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);}
 #po.open{display:flex;pointer-events:all;}
-.pm{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(env(safe-area-inset-bottom),24px);max-height:88vh;overflow-y:auto;}
+.pm{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(var(--sai-b,0px),24px);max-height:88vh;overflow-y:auto;}
 .pmh{width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 16px;}
 .pm h2{font-size:20px;font-weight:800;color:var(--tx);margin-bottom:4px;}
 .pm>p{font-size:12px;color:var(--tx2);margin-bottom:16px;}
@@ -549,7 +560,7 @@ body{background:#f2f6ff;}
 /* ─── BOOKING MODAL ─── */
 #bov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);}
 #bov.open{display:flex;pointer-events:all;}
-.bm{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(env(safe-area-inset-bottom),24px);}
+.bm{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(var(--sai-b,0px),24px);}
 .bm h2{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px;}
 .bm>p{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:16px;}
 .bm .f label{color:rgba(255,255,255,.6);}
@@ -565,12 +576,12 @@ body{background:#f2f6ff;}
 #upgrade-modal.open{display:flex;pointer-events:all;}
 #delcuenta-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:92;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);}
 #delcuenta-modal.open{display:flex;pointer-events:all;}
-.cal-sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:16px 20px;padding-bottom:max(env(safe-area-inset-bottom),24px);max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.cal-sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:16px 20px;padding-bottom:max(var(--sai-b,0px),24px);max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
 /* ─── ADMIN MODAL ─── */
 #ao{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);}
 #ao.open{display:flex;pointer-events:all;}
-.am{background:#09090f;border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,20px);}
+.am{background:#09090f;border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding-bottom:max(var(--sai-b,0px),20px);}
 .amh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1e1e30;position:sticky;top:0;background:#09090f;z-index:1;}
 .amh h2{font-size:14px;font-weight:800;color:#e2e8f0;}
 .a/* removed bad body padding */
@@ -602,7 +613,7 @@ body{background:#f2f6ff;}
 
 #lo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99;pointer-events:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);}
 #lo.open{display:flex;pointer-events:all;}
-.lm{background:#09090f;border-radius:24px 24px 0 0;padding:24px 20px;padding-bottom:max(env(safe-area-inset-bottom),24px);width:100%;max-width:480px;}
+.lm{background:#09090f;border-radius:24px 24px 0 0;padding:24px 20px;padding-bottom:max(var(--sai-b,0px),24px);width:100%;max-width:480px;}
 .lm h2{font-size:20px;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 .lm p{font-size:12px;color:#64748b;margin-bottom:16px;}
 .lm .af input{background:#13131f;color:#e2e8f0;border-color:#1e1e30;}
@@ -629,7 +640,7 @@ body{background:#f2f6ff;}
 /* ── MULTI-ACCOUNT ── */
 #accounts-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);}
 #accounts-overlay.open{display:flex;pointer-events:all;}
-.accts-panel{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(env(safe-area-inset-bottom),24px);max-height:80vh;overflow-y:auto;}
+.accts-panel{background:#1a1a2e;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px;padding-bottom:max(var(--sai-b,0px),24px);max-height:80vh;overflow-y:auto;}
 .accts-panel h2{font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;}
 .accts-panel>p{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px;}
 .acct-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);margin-bottom:8px;cursor:pointer;transition:all .15s;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
@@ -703,18 +714,18 @@ body{background:#f2f6ff;}
 .csh-texture{position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.015) 0px,rgba(255,255,255,.015) 1px,transparent 1px,transparent 12px),repeating-linear-gradient(-45deg,rgba(255,255,255,.015) 0px,rgba(255,255,255,.015) 1px,transparent 1px,transparent 12px);}
 
 #toast{
-  position:fixed;bottom:max(env(safe-area-inset-bottom),24px);
+  position:fixed;bottom:max(var(--sai-b,0px),24px);
   left:50%;transform:translateX(-50%);
   background:var(--tx);color:var(--bg);
   border-radius:var(--radius-pill);padding:10px 20px;
   font-size:13px;font-weight:700;z-index:490;
-  display:none;white-space:nowrap;
+  display:none;white-space:nowrap;pointer-events:none;
   box-shadow:0 4px 24px rgba(0,0,0,.25);
 }
 #toast.show{display:block;animation:toastin .3s cubic-bezier(.4,0,.2,1);}
 @keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
-#ib{display:none;position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--hg);color:var(--htx);padding:12px 16px;padding-bottom:max(env(safe-area-inset-bottom),12px);align-items:center;justify-content:space-between;gap:10px;z-index:40;font-size:12px;font-weight:600;}
+#ib{display:none;position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:var(--hg);color:var(--htx);padding:12px 16px;padding-bottom:max(var(--sai-b,0px),12px);align-items:center;justify-content:space-between;gap:10px;z-index:40;font-size:12px;font-weight:600;}
 #ib button{background:rgba(255,255,255,.2);color:var(--htx);border:none;padding:7px 14px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;}
 
 </style>
@@ -851,7 +862,7 @@ async function installApp(){
 </div>
 
 <!-- ONBOARDING -->
-<div id="onboarding" style="display:none;position:fixed;inset:0;background:#08080f;z-index:300;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:24px 20px 80px;">
+<div id="onboarding" style="display:none;position:fixed;inset:0;background:#08080f;z-index:300;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:max(24px,calc(var(--sai-t,0px) + 12px)) 20px calc(80px + var(--sai-b,0px));">
   <div style="max-width:480px;margin:0 auto;">
     <!-- Step indicator -->
     <div id="ob-dots" style="display:none;flex;gap:6px;margin-bottom:32px;justify-content:center;">
@@ -1117,7 +1128,7 @@ async function installApp(){
 </div>
 
 <!-- RECORRIDO POST-ONBOARDING — se muestra una vez, después de configurar la app, antes de entrar -->
-<div id="ob-walk" style="display:none;position:fixed;inset:0;background:#08080f;z-index:301;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px 20px 40px;">
+<div id="ob-walk" style="display:none;position:fixed;inset:0;background:#08080f;z-index:301;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(24px,calc(var(--sai-t,0px) + 12px)) 20px calc(40px + var(--sai-b,0px));">
 
   <!-- Paso 1: alcance -->
   <div id="ob-walk-1">
@@ -1312,7 +1323,7 @@ async function installApp(){
   <!-- BETA NAV: panel lateral — reemplaza la barra inferior + hoja "Más". Todo agrupado y
        visible de un solo toque, nada escondido dos niveles adentro. -->
   <div id="side-menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;" onclick="if(event.target===this)closeSideMenu()">
-    <div style="background:var(--card-solid);width:62%;max-width:240px;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(env(safe-area-inset-top),12px) 0 max(env(safe-area-inset-bottom),12px);">
+    <div style="background:var(--card-solid);width:62%;max-width:240px;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(var(--sai-t,0px),12px) 0 max(var(--sai-b,0px),12px);">
       <button class="side-item" onclick="goSideTab('dashboard')">🏠 Inicio</button>
 
       <div style="padding:8px 18px 3px;font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;">Crear</div>
@@ -1428,17 +1439,17 @@ async function installApp(){
       <div class="f"><label>Instrucciones para la IA (opcional)</label><textarea id="notas" placeholder="Ej: resalta que somos los únicos en Chile, habla solo a dueños de pymes, tono cercano y sin tecnicismos, incluye el precio de lanzamiento..."></textarea></div>
 
       <div class="brow">
-        <button class="btn btn-ai" id="bguion" onclick="genGuion()">✨ Guión IA</button>
+        <button class="btn btn-ai" id="bguion" onclick="genGuion()">✨ Guion IA</button>
         <button class="btn btn-p" onclick="saveVid(false)">Guardar</button>
       </div>
       <p id="fmsg"></p>
       <div class="gb" id="gbox" style="display:none;">
-        <h3>Guión sugerido</h3>
+        <h3>Guion sugerido</h3>
         <textarea class="gt" id="gtxt" oninput="guion=this.value" style="width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:8px;padding:10px;outline:none;resize:vertical;font-family:inherit;min-height:140px;"></textarea>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-sm" onclick="cpGuion()">📋 Copiar guion</button>
           <button class="btn btn-sm" onclick="iniciarGrabacion()">🎥 Grabar con cámara</button>
-          <button class="btn btn-sm btn-p" onclick="saveVid(true)">Guardar + guión</button>
+          <button class="btn btn-sm btn-p" onclick="saveVid(true)">Guardar + guion</button>
         </div>
 
         <input type="file" id="camNativaInput" accept="video/*" capture="user" style="display:none;" onchange="onCamaraNativaFile(this)">
@@ -1449,7 +1460,7 @@ async function installApp(){
             <button class="btn btn-sm btn-p" onclick="dlVideoGrabado()">⬇️ Guardar en tu celular</button>
             <button class="btn btn-sm" onclick="abrirCamaraNativa()">🔄 Grabar de nuevo</button>
           </div>
-          <p style="font-size:10px;color:var(--tx2);margin-top:8px;">No olvides tocar "Guardar + guión" arriba para registrar este video en tus Publicaciones.</p>
+          <p style="font-size:10px;color:var(--tx2);margin-top:8px;">No olvides tocar "Guardar + guion" arriba para registrar este video en tus Publicaciones.</p>
         </div>
       </div>
     </div>
@@ -1466,7 +1477,7 @@ async function installApp(){
           <div style="margin-top:10px;display:flex;gap:8px;">
             <button class="btn btn-sm btn-pu" onclick="doRandom()">🎲 Otra</button>
             <button class="btn btn-sm btn-p" onclick="useSug('r')">Usar esta</button>
-            <button class="btn btn-sm btn-ai" id="rbtn-guion" onclick="useSugAndGen('r')" style="display:none;">✨ Usar y generar guión</button>
+            <button class="btn btn-sm btn-ai" id="rbtn-guion" onclick="useSugAndGen('r')" style="display:none;">✨ Usar y generar guion</button>
           </div>
         </div>
       </div>
@@ -1481,11 +1492,11 @@ async function installApp(){
           <p class="code-hint">Pega este código en la descripción del video al publicarlo.</p>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-sm btn-p" onclick="useSug('s')">Usar esta</button>
-            <button class="btn btn-sm btn-ai" onclick="useSugAndGen('s')">✨ Usar y generar guión</button>
-            <button class="btn btn-sm btn-ai" onclick="genGuionSmart()">✨ Guión</button>
+            <button class="btn btn-sm btn-ai" onclick="useSugAndGen('s')">✨ Usar y generar guion</button>
+            <button class="btn btn-sm btn-ai" onclick="genGuionSmart()">✨ Guion</button>
           </div>
           <div class="gb" id="sgbox" style="display:none;margin-top:14px;">
-            <h3>Guión sugerido</h3>
+            <h3>Guion sugerido</h3>
             <textarea class="gt" id="sgtxt" oninput="guionS=this.value" style="width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:8px;padding:10px;outline:none;resize:vertical;font-family:inherit;min-height:140px;"></textarea>
             <div style="margin-top:10px;"><button class="btn btn-sm" onclick="cpSmart()">Copiar</button></div>
           </div>
@@ -2198,7 +2209,7 @@ let avail=[], myBookings=[], pendingSlot=null, pendingChain=[], pendingBloques=1
 let gam={xp:0,level:1,achievements:[],retoWeek:'',growthMonth:''};
 
 const TIPS={
-  nuevo:{label:'Crear video nuevo',text:'➕ Elige el tema o producto, el formato y a quién le hablas — yo armo el guión completo.<br><br>💡 El guión es una referencia — siempre puedes sumarle algo de tu propia cosecha.<br><br>✅ Al guardar, tu video pasa a la pestaña Videos, dentro de 🔵 Con ChilliSketch.<br><br>🏷️ Cada video trae un código de seguimiento, algo como <span style="font-family:monospace;background:rgba(255,255,255,.12);padding:1px 6px;border-radius:4px;">CHW-9F2QX-7B3K1M</span>. Cópialo en tu posteo de IG, TikTok o YouTube: trae todas las variables del video y nos sirve para mejorar el desempeño de los próximos.'},
+  nuevo:{label:'Crear video nuevo',text:'➕ Elige el tema o producto, el formato y a quién le hablas — yo armo el guion completo.<br><br>💡 El guion es una referencia — siempre puedes sumarle algo de tu propia cosecha.<br><br>✅ Al guardar, tu video pasa a la pestaña Videos, dentro de 🔵 Con ChilliSketch.<br><br>🏷️ Cada video trae un código de seguimiento, algo como <span style="font-family:monospace;background:rgba(255,255,255,.12);padding:1px 6px;border-radius:4px;">CHW-9F2QX-7B3K1M</span>. Cópialo en tu posteo de IG, TikTok o YouTube: trae todas las variables del video y nos sirve para mejorar el desempeño de los próximos.'},
   sugerir:{label:'Sugerir',text:'💡 ¿No sabes qué grabar? Reviso tus datos reales y te sugiero el próximo video, según lo que te ha funcionado y lo que te falta.'},
   carrusel:{label:'Carrusel',text:'🎠 Genero un carrusel para Instagram con tus colores de marca — solo dime el tema y elijo las imágenes y el texto de cada slide.'},
   videos:{label:'Publicaciones',text:'🎬 Todos tus videos y carruseles en un solo lugar, según su estado:<br><br>🔘 <strong>Por generar</strong> — está en tu calendario, aún sin pasar por ChilliSketch.<br><br>🔵 <strong>Con ChilliSketch</strong> — ya tiene su código.<br><br>🟢 <strong>Publicado</strong> — ya está en tus redes.'},
@@ -4625,7 +4636,7 @@ function mkPrompt(v){
       ?'🎯 CTA:\nLlamado a la acción claro y directo. Dile exactamente qué hacer.\n'
       :'(Sin CTA — este video es de puro valor, no pidas nada)\n')
     +'\nDuración al leerlo: '+(v.red==='YouTube'?'2 a 4 minutos':'30 a 60 segundos')+'\n'
-    +'Escribe SOLO el guión con los títulos de sección, sin explicaciones adicionales.';
+    +'Escribe SOLO el guion con los títulos de sección, sin explicaciones adicionales.';
 }
 function showMsg(t,c){const m=document.getElementById('fmsg');m.textContent=t;m.style.color=c||'var(--tx2)';m.style.display='block';}
 // Opción "Otro" en Tema/Producto — muestra el input de texto libre cuando se
@@ -4716,7 +4727,7 @@ function checkProdDesc(v){
   if(!v.producto)return;
   var prodObj=(cfg.productos||[]).find(function(p){return(typeof p==='object'?p.nombre:p)===v.producto;});
   if(!prodObj||!(typeof prodObj==='object'&&prodObj.descripcion&&prodObj.descripcion.trim())){
-    showMsg('⚠️ "'+v.producto+'" no tiene descripción — agrega una en Mi negocio para mejorar el guión.');
+    showMsg('⚠️ "'+v.producto+'" no tiene descripción — agrega una en Mi negocio para mejorar el guion.');
   }
 }
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -4752,10 +4763,10 @@ async function genGuion(){
   document.getElementById('fmsg').style.display='none';guion='';
   const reserva=await reservarCupo('guion');
   if(!reserva.ok){
-    box.style.display='none';btn.disabled=false;btn.textContent='✨ Guión IA';
+    box.style.display='none';btn.disabled=false;btn.textContent='✨ Guion IA';
     showMsg(reserva.error||'No se pudo generar el guion.');return;
   }
-  txt.value='Escribiendo guión...';
+  txt.value='Escribiendo guion...';
   try{
     const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:mkPrompt(v)})});
     const d=await r.json();
@@ -4763,7 +4774,7 @@ async function genGuion(){
     guion=d.content?.[0]?.text||'Sin respuesta.';
     txt.value=guion;
   }catch(e){txt.value='Error de red: '+e.message+'\n\n'+sugerenciaError(null,true);devolverCupo('guion');logErrorSilencioso('guion','red: '+e.message);}
-  btn.disabled=false;btn.textContent='✨ Guión IA';
+  btn.disabled=false;btn.textContent='✨ Guion IA';
 }
 
 
@@ -4814,7 +4825,7 @@ function cpCopyById(id){
   if(v&&v.copy)navigator.clipboard.writeText(v.copy).then(()=>showToast('Copy copiado ✓'));
 }
 
-function cpGuion(){if(guion)navigator.clipboard.writeText(guion).then(()=>showToast('Guión copiado ✓'));}
+function cpGuion(){if(guion)navigator.clipboard.writeText(guion).then(()=>showToast('Guion copiado ✓'));}
 
 // Grabación con cámara nativa — versión intermedia, sin motor de cámara propio
 // (eso quedó descartado: requeriría AVFoundation/CameraX nativos, que no son
@@ -5439,19 +5450,19 @@ async function syncVideosFromSB(){
 
 async function generateCopy(v,code,guionTexto){
   var etiquetaTema=v.contexto==='producto'?'Producto/Servicio destacado':v.contexto==='ambos'?'Tema + Producto':'Tema';
-  // Extraer el inicio del guión (hook + primeras líneas) como contexto para el copy
+  // Extraer el inicio del guion (hook + primeras líneas) como contexto para el copy
   var guionResumen='';
   if(guionTexto&&guionTexto.trim()){
     guionResumen=guionTexto.trim().replace(/\[[^\]]*\]/g,'').replace(/\n+/g,' ').slice(0,350);
   }
   var parts=[
     'Genera un copy para redes sociales (200-300 caracteres, 2-3 emojis, sin hashtags).',
-    'El copy debe ser coherente y complementar el guión del video — no repetirlo, sino motivar a verlo.',
+    'El copy debe ser coherente y complementar el guion del video — no repetirlo, sino motivar a verlo.',
     'Negocio: '+(cfg.description||cfg.name||'negocio'),
     etiquetaTema+': '+v.tema,
     'Formato: '+v.formato,
     'Red: '+v.red,
-    guionResumen?'Guión (extracto): '+guionResumen:'',
+    guionResumen?'Guion (extracto): '+guionResumen:'',
     'Termina con el codigo: '+code,
     'Responde SOLO con el copy, sin explicaciones ni comillas.'
   ].filter(Boolean);
@@ -5467,7 +5478,7 @@ async function useSugAndGen(t){
   showTab('nuevo');
   await new Promise(function(r){setTimeout(r,300);});
   genGuion();
-  // genGuion ya corrió su parte síncrona (mostrar el cuadro "Escribiendo guión...")
+  // genGuion ya corrió su parte síncrona (mostrar el cuadro "Escribiendo guion...")
   // antes de llegar a su primer await — bajamos la vista ahí mismo, para que no
   // parezca que no pasó nada al llegar arriba de la pantalla "Nuevo".
   var gbox=document.getElementById('gbox');
@@ -5574,7 +5585,7 @@ function renderVideos(){
         <p style="font-size:11px;color:var(--tx2);line-height:1.55;margin:0;flex:1;">${v.copy}</p>
         <button class="code-copy" style="flex-shrink:0;" onclick="cpCopyById(${v.id})">📋</button>
       </div>`:''}
-      ${v.guion?`<div class="ga"><button class="gt2" onclick="togG(${v.id})">Ver guión</button><button class="code-copy" onclick="cpRaw('gc-${v.id}')">📋 Copiar</button><div class="gc" id="gc-${v.id}">${v.guion}</div></div>`:''}
+      ${v.guion?`<div class="ga"><button class="gt2" onclick="togG(${v.id})">Ver guion</button><button class="code-copy" onclick="cpRaw('gc-${v.id}')">📋 Copiar</button><div class="gc" id="gc-${v.id}">${v.guion}</div></div>`:''}
       ${estado==='planificado'?(esCarrusel
         ?`<button class="btn btn-sm btn-ai" style="width:100%;margin-top:8px;" onclick="calGoCreateCarrusel('${String(v.tema||'').replace(/'/g,"\\'")}',${v.id})">✨ Crear carrusel ahora</button>`
         :`<button class="btn btn-sm btn-ai" style="width:100%;margin-top:8px;" onclick="calGoCreate('${String(v.tema||'').replace(/'/g,"\\'")}','${v.formato||''}','${v.tipo||''}',${v.id})">✨ Crear ahora</button>`
@@ -6520,7 +6531,9 @@ function isLightColor(hex){return getLuminance(hex)>0.55;}
 function buildSlideHTML(slide,idx,total,imgs,color1,color2){
   var isFirst=idx===0;var isLast=idx===total-1;
   var usoImg=slide.usoImg||'';
-  var brand=(cfg.name||'ChilliApp').toUpperCase();
+  var brandName=(cfg.name||'ChilliApp').toUpperCase();
+  // El nombre va en su propio <span> para poder ocultarlo si el logo ya es un logotipo ancho con el nombre escrito (ver ajustarLogoEnSlide)
+  var brand='<span data-brand-name="1">'+brandName+'</span>';
   // Logo real del cliente (si lo subió en Marca) — antes solo se dibujaba el
   // nombre como texto, el logo nunca se usaba en el carrusel. preloadImagesIn()
   // ya se encarga de precargar cualquier <img> antes de capturar el canvas,
@@ -6533,7 +6546,19 @@ function buildSlideHTML(slide,idx,total,imgs,color1,color2){
   // cliente puede pedir otro color puntual para una lámina vía "Regenerar"
   // (ej. "dale fondo rojo al logo"), guardado en slide.logoFondoColor.
   var logoBgColor=slide.logoFondoColor||'rgba(255,255,255,.92)';
-  var brandLogo=cfg.logo?'<span style="display:inline-flex;align-items:center;background:'+logoBgColor+';padding:4px 7px;border-radius:6px;margin-right:6px;box-shadow:0 1px 4px rgba(0,0,0,.18);vertical-align:middle;"><img src="'+cfg.logo+'" crossorigin="anonymous" style="height:16px;width:auto;display:block;"></span>':'';
+  // El logo antes se dibujaba a 16px de alto sobre una lámina de 1080px (1,5% del alto):
+  // quedaba como una mancha blanca ilegible y parecía que solo estaba el nombre.
+  // Ahora va a un tamaño legible (64px, o 52px dentro de bloques de color). Si el
+  // logo no carga se quita la píldora, y si es un logotipo ancho se oculta el
+  // nombre en texto — ver ajustarLogoEnSlide(), que corre justo antes de capturar.
+  // OJO: sin box-shadow — html2canvas 1.4.1 dibuja la sombra DENTRO de la píldora cuando el fondo es
+  // semitransparente y tapa el logo con un rectángulo gris (así se veía antes, además de diminuto).
+  function logoPill(h,maxW){
+    if(!cfg.logo)return '';
+    return '<span data-logo-pill="1"'+(slide.logoFondoColor?' data-bg-fijo="1"':'')+' style="position:relative;display:inline-flex;align-items:center;justify-content:center;background:'+logoBgColor+';padding:8px 14px;border-radius:14px;margin-right:16px;border:1px solid rgba(0,0,0,.12);vertical-align:middle;"><img src="'+cfg.logo+'" crossorigin="anonymous" style="position:relative;z-index:1;height:'+h+'px;width:auto;max-width:'+maxW+'px;object-fit:contain;display:block;"></span>';
+  }
+  var brandLogo=logoPill(64,300);
+  var brandLogoChico=logoPill(52,220);
   var img0=imgs&&imgs.length>0?imgs[0]:null;
   var noUseImg=usoImg.includes('no usar');
   var hasImg=img0&&!noUseImg;
@@ -6607,7 +6632,7 @@ function buildSlideHTML(slide,idx,total,imgs,color1,color2){
     html+='<div class="csh-solidblock" style="background:'+color1+';position:absolute;'+bcPos+'max-width:78%;">'
       +'<div class="csh-title" style="font-size:'+(isFirst?'64px':'52px')+';text-shadow:none;color:'+badgeTx+';">'+slide.titulo+'</div>'
       +(slide.cuerpo?'<div class="csh-body" style="color:'+badgeTx+';opacity:.92;margin-top:8px;">'+slide.cuerpo+'</div>':'')
-      +'<div style="margin-top:14px;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:.18em;color:'+badgeTx+';opacity:.7;">'+brandLogo+brand+'</div>'
+      +'<div style="margin-top:14px;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:.18em;color:'+badgeTx+';">'+brandLogoChico+'<span style="opacity:.7;">'+brand+'</span></div>'
     +'</div>';
 
   }else if(treatment==='side-block'){
@@ -6616,7 +6641,7 @@ function buildSlideHTML(slide,idx,total,imgs,color1,color2){
       +badge
       +'<div class="csh-title" style="font-size:50px;margin-top:14px;text-shadow:none;color:'+badgeTx+';">'+slide.titulo+'</div>'
       +(slide.cuerpo?'<div class="csh-body" style="color:'+badgeTx+';opacity:.92;margin-top:10px;">'+slide.cuerpo+'</div>':'')
-      +'<div style="position:absolute;bottom:30px;'+(leftSide?'left':'right')+':30px;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:.16em;color:'+badgeTx+';opacity:.7;">'+brandLogo+brand+'</div>'
+      +'<div style="position:absolute;bottom:30px;'+(leftSide?'left':'right')+':30px;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:.16em;color:'+badgeTx+';">'+brandLogoChico+'<span style="opacity:.7;">'+brand+'</span></div>'
     +'</div>';
 
   }else if(treatment==='solid-strip'){
@@ -6629,7 +6654,7 @@ function buildSlideHTML(slide,idx,total,imgs,color1,color2){
       +'<div style="width:40px;height:5px;border-radius:3px;background:'+color1+';margin-bottom:10px;"></div>'
       +'<div class="csh-title" style="font-size:'+(isFirst?'70px':'58px')+';text-shadow:none;color:'+stripTx+';">'+slide.titulo+'</div>'
       +(slide.cuerpo?'<div class="csh-body" style="color:'+stripTx+';opacity:.85;margin-top:8px;">'+slide.cuerpo+'</div>':'')
-      +'<div style="margin-top:14px;font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:.18em;color:'+stripTx+';opacity:.5;">'+brandLogo+brand+'</div>'
+      +'<div style="margin-top:14px;font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:.18em;color:'+stripTx+';">'+brandLogoChico+'<span style="opacity:.5;">'+brand+'</span></div>'
     +'</div>';
 
   }else{
@@ -6682,6 +6707,70 @@ async function preloadImagesIn(wrap){
   }));
 }
 
+// ── LOGO DEL NEGOCIO EN LAS LÁMINAS ────────────────────────────────
+// Carga el logo UNA vez (con CORS, igual que la captura) y devuelve:
+//  ok     → si se pudo cargar (si no, la lámina sale sin logo en vez de con un hueco roto)
+//  w,h    → tamaño real, para saber si es un logotipo ancho (nombre escrito en el logo)
+//  claro  → logo transparente y casi blanco: sobre la píldora blanca no se vería
+var _logoInfoCache={};
+function analizarLogo(url){
+  if(_logoInfoCache[url])return _logoInfoCache[url];
+  var p=new Promise(function(res){
+    var img=new Image();img.crossOrigin='anonymous';
+    var done=false;
+    var killer=setTimeout(function(){if(!done){done=true;res({ok:false});}},8000);
+    img.onload=function(){
+      if(done)return;done=true;clearTimeout(killer);
+      var info={ok:true,w:img.naturalWidth||1,h:img.naturalHeight||1,claro:false,img:img};
+      try{
+        var c=document.createElement('canvas');var s=48;c.width=s;c.height=s;
+        var g=c.getContext('2d');g.drawImage(img,0,0,s,s);
+        var d=g.getImageData(0,0,s,s).data;
+        var suma=0,peso=0,transp=0;
+        for(var i=0;i<d.length;i+=4){
+          var a=d[i+3]/255;
+          if(a<0.16){transp++;continue;}
+          suma+=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])*a;peso+=a;
+        }
+        info.claro=(transp/(s*s))>0.1&&peso>0&&(suma/peso)>200;
+      }catch(e){}
+      res(info);
+    };
+    img.onerror=function(){if(!done){done=true;clearTimeout(killer);res({ok:false});}};
+    img.src=url;
+  });
+  _logoInfoCache[url]=p;
+  // un fallo (red caída, CORS) no se recuerda: se reintenta la próxima vez
+  p.then(function(info){if(!info.ok)delete _logoInfoCache[url];});
+  return p;
+}
+function avisarLogoNoCarga(){
+  if(window._avisoLogoTs&&Date.now()-window._avisoLogoTs<60000)return;
+  window._avisoLogoTs=Date.now();
+  showToast('⚠️ No se pudo cargar tu logo — súbelo de nuevo en Marca');
+}
+// Se ejecuta con la lámina ya puesta en el DOM, justo antes de html2canvas
+async function ajustarLogoEnSlide(wrap){
+  var pills=wrap.querySelectorAll('[data-logo-pill]');
+  if(!pills.length)return;
+  var info=await analizarLogo(cfg.logo);
+  if(!info.ok){
+    pills.forEach(function(p){p.parentNode.removeChild(p);});
+    avisarLogoNoCarga();
+    return;
+  }
+  // Logotipo ancho (el nombre ya viene escrito dentro del logo): no se repite el nombre en texto
+  var ancho=(info.w/info.h)>=2.2;
+  if(ancho){
+    wrap.querySelectorAll('[data-brand-name]').forEach(function(n){n.style.display='none';});
+    pills.forEach(function(p){p.style.marginRight='0';});
+  }
+  // Logo claro y transparente: píldora oscura (salvo que el cliente haya pedido un color con "Regenerar")
+  if(info.claro){
+    pills.forEach(function(p){if(!p.getAttribute('data-bg-fijo'))p.style.background='rgba(20,15,35,.92)';});
+  }
+}
+
 function renderSlideAsImage(slideHTML,idx,tema){
   return new Promise(function(resolve){
     var wrap=document.getElementById('car-slide-render');
@@ -6694,6 +6783,8 @@ function renderSlideAsImage(slideHTML,idx,tema){
       :Promise.resolve();
     Promise.all([preloadImagesIn(wrap),fontReady]).then(function(){
       return new Promise(function(r){setTimeout(r,150);});
+    }).then(function(){
+      return ajustarLogoEnSlide(wrap);
     }).then(function(){
       return html2canvas(wrap,{
         width:1080,height:1080,scale:1,
@@ -6814,9 +6905,30 @@ function drawSlide(canvas,slide,idx,total,colors,fontStack){
     bodyLines.slice(0,8).forEach(function(l,i){ctx.fillText(l,80,bodyY+i*62);});
   }
 
-  // Nombre de marca
-  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='bold 32px Arial';ctx.textAlign='left';
-  ctx.fillText((cfg.name||'ChilliApp').toUpperCase(),80,size-60);
+  // Nombre de marca — y logo, si hay uno guardado (misma regla que las láminas reales:
+  // píldora con el logo + nombre al lado, o solo el logo si es un logotipo ancho)
+  var dibujarNombre=function(x){
+    ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='bold 32px Arial';ctx.textAlign='left';
+    ctx.fillText((cfg.name||'ChilliApp').toUpperCase(),x,size-60);
+  };
+  if(cfg.logo){
+    var tok=canvas._logoTok=(canvas._logoTok||0)+1; // si se vuelve a dibujar, se ignora la carga anterior
+    analizarLogo(cfg.logo).then(function(info){
+      if(canvas._logoTok!==tok)return;
+      if(!info.ok){dibujarNombre(80);return;}
+      var h=64,w=Math.min(h*info.w/info.h,300),padX=14,padY=8;
+      var dh=w*info.h/info.w; // sin deformar si el ancho se recorta
+      var px=80,py=size-60-h/2-padY-12; // centrada con el texto del nombre
+      ctx.fillStyle=info.claro?'rgba(20,15,35,.92)':'rgba(255,255,255,.92)';
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(px,py,w+padX*2,h+padY*2,14);else ctx.rect(px,py,w+padX*2,h+padY*2);
+      ctx.fill();
+      ctx.drawImage(info.img,px+padX,py+padY+(h-dh)/2,w,dh);
+      if(info.w/info.h<2.2)dibujarNombre(px+w+padX*2+16);
+    });
+  }else{
+    dibujarNombre(80);
+  }
 
   // Barra inferior de acento
   ctx.fillStyle=colors.accent;ctx.globalAlpha=.5;
@@ -7217,10 +7329,39 @@ async function renderCarruselV2(topics,total,tema,tono,negocio,contexto){
   });
 }
 
+// ¿Estamos dentro de la app nativa (Android/iOS) y el puente sabe guardar imágenes
+// en la galería? Dentro del WebView de la app, el método de "descargar archivo"
+// del navegador (<a download> con un blob:) NO hace nada — la página igual
+// mostraba "descargado ✓" y la imagen nunca llegaba al teléfono. En la app
+// nativa los slides se guardan por el puente (mismo álbum "ChilliApp" que los
+// videos); en navegador/PWA se sigue usando la descarga normal de abajo.
+function chwPuedeGuardarImagenNativo(){
+  return !!(window.ChilliCamera&&typeof window.ChilliCamera.disponible==='function'&&window.ChilliCamera.disponible()&&typeof window.ChilliCamera.guardarImagenEnGaleria==='function');
+}
+// Guarda UN slide en la galería. El nombre lleva el código del carrusel, así
+// dos carruseles distintos nunca se pisan entre sí. Tiempo límite de 20 s para
+// no dejar a la persona esperando si el guardado nativo se cuelga.
+function chwGuardarSlideNativo(item,idx){
+  var base=((window._lastCarrusel&&window._lastCarrusel.code)||'carrusel').toLowerCase()+'-slide-'+(idx+1);
+  return Promise.race([
+    window.ChilliCamera.guardarImagenEnGaleria(item.canvas.toDataURL('image/png'),base),
+    new Promise(function(_,reject){setTimeout(function(){reject(new Error('Tiempo de espera agotado (20 s)'));},20000);})
+  ]);
+}
+
 function dlSlideFromRendered(idx){
   if(!window._lastCarrusel||!window._lastCarrusel.rendered)return;
   var item=window._lastCarrusel.rendered.find(function(r){return r.idx===idx;});
   if(!item)return;
+  if(chwPuedeGuardarImagenNativo()){
+    showToast('Guardando slide '+(idx+1)+'...');
+    chwGuardarSlideNativo(item,idx).then(function(){
+      showToast('Slide '+(idx+1)+' guardado en tu galería ✓ (álbum ChilliApp)');
+    }).catch(function(e){
+      showToast('No se pudo guardar el slide '+(idx+1)+': '+((e&&e.message)||e));
+    });
+    return;
+  }
   var name='slide-'+(idx+1)+'-'+((window._lastCarrusel.tema||'carrusel').substring(0,20).replace(/[^a-z0-9]/gi,'-'))+'.png';
   item.canvas.toBlob(function(blob){
     if(!blob)return;
@@ -7363,6 +7504,22 @@ async function dlAllSlides(){
   if(!window._lastCarrusel||!window._lastCarrusel.rendered)return;
   var rendered=window._lastCarrusel.rendered;
   var tema=(window._lastCarrusel.tema||'carrusel').substring(0,20).replace(/[^a-z0-9]/gi,'-');
+  if(chwPuedeGuardarImagenNativo()){
+    // App nativa: guarda uno por uno en la galería y solo avisa "✓" si de verdad se guardó.
+    var guardados=0;
+    for(var j=0;j<rendered.length;j++){
+      var rj=rendered[j];
+      if(!rj||!rj.canvas)continue;
+      showToast('Guardando slide '+(guardados+1)+' de '+rendered.length+'...');
+      try{await chwGuardarSlideNativo(rj,rj.idx);guardados++;}
+      catch(e){
+        showToast('No se pudo guardar el slide '+(rj.idx+1)+': '+((e&&e.message)||e)+(guardados?' (ya se guardaron '+guardados+')':''));
+        return;
+      }
+    }
+    showToast('✓ '+guardados+' slides guardados en tu galería (álbum ChilliApp)');
+    return;
+  }
   showToast('Descargando slide 1 de '+rendered.length+'...');
   for(var i=0;i<rendered.length;i++){
     var r=rendered[i];
@@ -7612,7 +7769,7 @@ function renderCalListoPanel(v){
     +'<p style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:6px;">🔵 Con ChilliSketch</p>'
     +'<p style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px;">'+v.tema+'</p>'
     +'<p style="font-size:11px;color:var(--tx2);margin-bottom:12px;">'+(v.formato||'')+(v.tipo?' · '+v.tipo:'')+'</p>'
-    +'<button class="btn btn-sm" onclick="showTab(\'videos\')" style="width:100%;">📋 Ver guión</button>'
+    +'<button class="btn btn-sm" onclick="showTab(\'videos\')" style="width:100%;">📋 Ver guion</button>'
     +'</div>';
 }
 
@@ -8535,29 +8692,33 @@ detrás del WebView, guion de ChilliApp encima. Solo se abre si
 window.ChilliCamera.disponible() es true (o sea, corriendo dentro de la app
 nativa empaquetada con Capacitor, no en el navegador). -->
 <div id="chilliCamScreen" style="display:none;position:fixed;inset:0;z-index:9999;background:transparent;">
-  <div id="chilliCamGuion" style="position:absolute;top:calc(max(16px,env(safe-area-inset-top)) + 56px);left:6%;right:6%;max-height:38%;overflow:hidden;">
+  <!-- Capa transparente de arrastre: deslizar el dedo en cualquier parte de la
+       pantalla mueve el guion (los botones están por encima y siguen tocables). -->
+  <div id="chilliCamArrastre" style="position:absolute;inset:0;touch-action:none;"></div>
+  <div id="chilliCamGuion" style="position:absolute;top:calc(max(16px,var(--sai-t,0px)) + 56px);left:6%;right:6%;max-height:38%;overflow:hidden;pointer-events:none;">
     <div id="chilliCamGuionTexto" style="color:#fff;font-size:21px;line-height:1.55;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.9);white-space:pre-wrap;"></div>
   </div>
-  <div style="position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;display:flex;gap:10px;">
+  <div style="position:absolute;top:max(16px,var(--sai-t,0px));right:16px;display:flex;gap:10px;">
     <button id="chilliCamDebugBtn" onclick="chilliCamToggleDebug()" style="display:none;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">🐛</button>
     <button onclick="chilliCamCambiarCamara()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">🔄</button>
     <button onclick="chilliCamCerrar()" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:18px;">✕</button>
   </div>
-  <div id="chilliCamDebugPanel" style="display:none;position:absolute;top:max(68px,calc(env(safe-area-inset-top) + 52px));left:12px;right:12px;z-index:10001;background:#000;border:1.5px solid #22c55e;border-radius:10px;padding:10px 12px;max-height:34%;overflow-y:auto;">
+  <div id="chilliCamDebugPanel" style="display:none;position:absolute;top:max(68px,calc(var(--sai-t,0px) + 52px));left:12px;right:12px;z-index:10001;background:#000;border:1.5px solid #22c55e;border-radius:10px;padding:10px 12px;max-height:34%;overflow-y:auto;">
     <div id="chilliCamDebugLog" style="color:#22c55e;font-family:monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;"></div>
   </div>
-  <div style="position:absolute;bottom:150px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:12px;">
+  <div style="position:absolute;bottom:calc(max(40px,calc(var(--sai-b,0px) + 16px)) + 110px);left:0;right:0;display:flex;justify-content:center;align-items:center;gap:12px;">
+    <button onclick="chilliCamReiniciar()" aria-label="Volver al inicio del guion" style="height:40px;padding:0 14px;border-radius:999px;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;font-family:inherit;">↺ Inicio</button>
     <button onclick="chilliCamVelocidad(-1)" style="width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;flex-shrink:0;">🐢</button>
     <div id="chilliCamVelLabel" style="min-width:86px;text-align:center;color:#fff;font-size:12px;font-weight:700;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);border-radius:999px;padding:9px 8px;">Velocidad 3</div>
     <button onclick="chilliCamVelocidad(1)" style="width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.4);color:#fff;flex-shrink:0;">🐇</button>
   </div>
-  <div style="position:absolute;bottom:max(40px,env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;">
+  <div style="position:absolute;bottom:max(40px,calc(var(--sai-b,0px) + 16px));left:0;right:0;display:flex;justify-content:center;">
     <button id="chilliCamRecBtn" onclick="chilliCamToggleGrabar()" style="width:74px;height:74px;border-radius:50%;background:#ef4444;border:4px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);"></button>
   </div>
   <div id="chilliCamPreview" style="display:none;position:absolute;inset:0;background:#000;z-index:2;flex-direction:column;">
-    <button onclick="chilliCamCerrar()" style="position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;z-index:3;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:18px;">✕</button>
+    <button onclick="chilliCamCerrar()" style="position:absolute;top:max(16px,var(--sai-t,0px));right:16px;z-index:3;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:18px;">✕</button>
     <video id="chilliCamVideoEl" playsinline onclick="this.paused?this.play():this.pause()" style="width:100%;flex:1;object-fit:contain;background:#000;"></video>
-    <div style="display:flex;gap:10px;justify-content:center;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));flex-wrap:wrap;">
+    <div style="display:flex;gap:10px;justify-content:center;padding:18px;padding-bottom:max(18px,calc(var(--sai-b,0px) + 8px));flex-wrap:wrap;">
       <button onclick="chilliCamGuardar()" style="display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:#fff;border:none;border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">💾 Guardar en galería</button>
       <button onclick="chilliCamCompartir()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">📤 Compartir</button>
       <button onclick="chilliCamRegrabar()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:13px 20px;font-size:14px;font-weight:700;font-family:inherit;">🔄 Grabar de nuevo</button>
@@ -8575,7 +8736,7 @@ nativa empaquetada con Capacitor, no en el navegador). -->
 // Controlador de la pantalla de grabación nativa — usa window.ChilliCamera
 // (definido por chilliapp-camera.js, ver arriba). Todo async/await porque el
 // puente de Capacitor es 100% basado en promesas.
-var chilliCamScrollRAF=null, chilliCamVelocidadActual=32, chilliCamGrabando=false, chilliCamUltimoResultado=null;
+var chilliCamScrollRAF=null, chilliCamVelocidadActual=32, chilliCamGrabando=false, chilliCamUltimoResultado=null, chilliCamArrastrando=false;
 
 // ── INTERRUPTOR DEL PANEL DE DEPURACION DE LA CAMARA ──
 // En false (produccion) el boton 🐛 no se muestra en ninguna plataforma. Un
@@ -8681,7 +8842,12 @@ function chilliCamFondoTransparente(activar){
   // así que aunque ya no esté oculto, igual quedaría tapado. Se sube
   // temporalmente mientras la cámara está abierta.
   var toastEl=document.getElementById('toast');
-  if(toastEl)toastEl.style.zIndex=activar?'10000':'';
+  if(toastEl){
+    toastEl.style.zIndex=activar?'10000':'';
+    // Dentro de la cámara el aviso sube por encima de la fila de controles, para no
+    // tapar el botón de grabar ni los de velocidad.
+    toastEl.style.bottom=activar?'calc(max(40px,calc(var(--sai-b,0px) + 16px)) + 170px)':'';
+  }
   document.documentElement.style.background=activar?'transparent':'';
   document.body.style.background=activar?'transparent':'';
 }
@@ -8703,6 +8869,11 @@ async function abrirCamaraTeleprompter(){
     if(dbgPanel)dbgPanel.style.display='none';
   }
   scr.style.display='block';
+  // El scrollTop=0 de arriba no hace efecto mientras la pantalla está oculta (el
+  // navegador conserva la posición anterior y la restaura al mostrarla), por eso
+  // al volver a abrir el guion seguía donde se había quedado. Se repite ya visible.
+  document.getElementById('chilliCamGuion').scrollTop=0;
+  chilliCamArrastrando=false;
   chilliCamFondoTransparente(true);
   try{
     await window.ChilliCamera.iniciar({position:'front'});
@@ -8714,6 +8885,10 @@ async function abrirCamaraTeleprompter(){
     return;
   }
   chilliCamEmpezarScroll();
+  try{
+    var vistas=parseInt(localStorage.getItem('chw_telep_hint')||'0',10);
+    if(vistas<3){localStorage.setItem('chw_telep_hint',String(vistas+1));showToast('Desliza el dedo para mover el guion · ↺ Inicio');}
+  }catch(_){}
 }
 
 function chilliCamEmpezarScroll(){
@@ -8739,7 +8914,11 @@ function chilliCamEmpezarScroll(){
       ultimo=t;
       var box=document.getElementById('chilliCamGuion');
       if(box){
-        if(posScroll===null)posScroll=box.scrollTop;
+        // Si alguien movió el guion por fuera de este bucle (arrastrándolo con el
+        // dedo o con "↺ Inicio"), se sigue desde donde quedó. Antes la posición
+        // acumulada de esta variable volvía a pisar el scroll en el cuadro
+        // siguiente, así que no había forma de volver atrás mientras se grababa.
+        if(posScroll===null||Math.abs(box.scrollTop-posScroll)>2)posScroll=box.scrollTop;
         // Acelera solo mientras pasa por un tramo entre corchetes (apuntes de
         // producción, no texto para leer) — así no se pierde tiempo real de
         // grabación esperando que termine de desplazarse una instrucción.
@@ -8748,7 +8927,8 @@ function chilliCamEmpezarScroll(){
         var multiplicador=enCorchete?2.4:1;
         // chilliCamVelocidadActual va de 5 (lento) a 65 (rápido) — se traduce
         // a píxeles por segundo, leído fresco en cada cuadro.
-        posScroll+=(chilliCamVelocidadActual*0.6)*multiplicador*(dt/1000);
+        // Mientras el dedo está sobre la pantalla el guion no avanza solo.
+        posScroll+=chilliCamArrastrando?0:(chilliCamVelocidadActual*0.6)*multiplicador*(dt/1000);
         var maxScroll=box.scrollHeight-box.clientHeight;
         if(posScroll>maxScroll)posScroll=maxScroll;
         box.scrollTop=posScroll;
@@ -8768,6 +8948,43 @@ function chilliCamVelocidad(delta){
   var lbl=document.getElementById('chilliCamVelLabel');
   if(lbl)lbl.textContent='Velocidad '+nivel;
 }
+
+// Vuelve el guion al comienzo. Funciona antes de grabar, durante la grabación
+// (la toma sigue y el guion parte de nuevo desde arriba) y después de detenerla.
+function chilliCamReiniciar(){
+  var box=document.getElementById('chilliCamGuion');
+  if(box)box.scrollTop=0;
+  chilliCamLog('Guion vuelto al inicio');
+  showToast('Guion al inicio ↺');
+}
+
+// Mover el guion con el dedo: deslizar hacia arriba lo sube, hacia abajo lo baja.
+// Con PointerEvents (sirve igual con dedo o mouse) sobre la capa transparente
+// #chilliCamArrastre. Mientras el dedo está puesto, el avance automático se
+// detiene; al soltar sigue desde la nueva posición.
+(function(){
+  var capa=document.getElementById('chilliCamArrastre');
+  if(!capa)return;
+  var y0=0,s0=0,activo=null;
+  capa.addEventListener('pointerdown',function(e){
+    activo=e.pointerId;chilliCamArrastrando=true;
+    var box=document.getElementById('chilliCamGuion');
+    y0=e.clientY;s0=box?box.scrollTop:0;
+    try{capa.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  capa.addEventListener('pointermove',function(e){
+    if(activo!==e.pointerId)return;
+    var box=document.getElementById('chilliCamGuion');
+    if(box)box.scrollTop=s0-(e.clientY-y0);
+  });
+  function soltar(e){
+    if(activo!==e.pointerId)return;
+    activo=null;chilliCamArrastrando=false;
+  }
+  capa.addEventListener('pointerup',soltar);
+  capa.addEventListener('pointercancel',soltar);
+  capa.addEventListener('lostpointercapture',soltar);
+})();
 
 async function chilliCamToggleGrabar(){
   var btn=document.getElementById('chilliCamRecBtn');
@@ -8825,6 +9042,11 @@ async function chilliCamCompartir(){
 }
 
 async function chilliCamRegrabar(){
+  // El guion vuelve al comienzo: antes se quedaba donde terminó la toma anterior
+  // y no había forma de reiniciarlo.
+  var boxG=document.getElementById('chilliCamGuion');
+  if(boxG)boxG.scrollTop=0;
+  chilliCamArrastrando=false;
   document.getElementById('chilliCamPreview').style.display='none';
   try{await window.ChilliCamera.iniciar({position:'front'});}
   catch(e){showToast('No se pudo reabrir la cámara: '+e.message);}
