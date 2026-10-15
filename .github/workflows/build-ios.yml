@@ -87,7 +87,7 @@ jobs:
           /usr/libexec/PlistBuddy -c "Delete :NSMicrophoneUsageDescription" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'ChilliApp usa el micrófono para grabar el audio de tus videos.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryAddUsageDescription" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'ChilliApp guarda en tu galería los videos que grabas.'" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'ChilliApp guarda en tu galería los videos que grabas y los carruseles que creas.'" "$PLIST"
           /usr/libexec/PlistBuddy -c "Delete :NSPhotoLibraryUsageDescription" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'ChilliApp accede a tu galería para que puedas usar tus imágenes en la app.'" "$PLIST"
           # ITMS-90683: el analisis estatico del binario detecto que una de las
