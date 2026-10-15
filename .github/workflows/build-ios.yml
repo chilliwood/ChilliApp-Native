@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 env:
-  APP_VERSION: '1.0'          # visible en App Store; sube a 1.1, 2.0, etc.
+  APP_VERSION: '1.1'          # visible en App Store; sube a 1.2, 2.0, etc.
   BUNDLE_ID: cl.chilliwood.chilliapp
 
 jobs:
