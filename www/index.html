@@ -1768,7 +1768,7 @@ async function installApp(){
         <div style="display:flex;gap:12px;align-items:center;">
           <img id="marca-logo-preview" style="width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--br);display:none;flex-shrink:0;" alt="">
           <div style="flex:1;">
-            <input type="file" id="marca-logo-file" accept="image/*" style="display:none;" onchange="uploadLogo(this.files[0])">
+            <input type="file" id="marca-logo-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="uploadLogo(this.files[0])">
             <button type="button" onclick="document.getElementById('marca-logo-file').click()" id="marca-logo-btn" style="background:var(--bg2);border:1.5px solid var(--br);border-radius:10px;padding:10px 16px;color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📤 Subir logo</button>
           </div>
         </div>
@@ -2194,6 +2194,48 @@ let sbClient=null, sbCid=null, sbToken=null;
 // Credenciales públicas del proyecto Supabase de Chilliwood — el publishable key (sb_publishable_...)
 // es el reemplazo oficial del anon key, diseñado para ser público; la seguridad real la dan las
 // políticas de RLS en la base de datos, no mantener esta key en secreto.
+// ── Versión de la app + aviso "Actualiza ChilliApp" ──────────────────────────
+// CHW_APP_BUILD: número de versión de ESTE código. Se manda en las llamadas al
+// servidor (app_build) para saber qué versiones siguen en uso, y se compara con
+// min_build de /.netlify/functions/app-config. Si la app nativa (App Store /
+// Google Play) tiene un build menor al mínimo, muestra una pantalla pidiendo
+// actualizar. Solo corre dentro de la app nativa y falla "abierto": si el
+// servidor no responde o min_build es 0 (valor de fábrica) no pasa nada.
+// Subir este número cada vez que se publique una versión nueva en las tiendas.
+const CHW_APP_BUILD=1;
+
+function chwShowUpdateGate(msg,url){
+  if(document.getElementById('chw-update-gate'))return;
+  var d=document.createElement('div');d.id='chw-update-gate';
+  d.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:#07050d;color:#f4f1ff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;font-family:inherit;';
+  var e=document.createElement('div');e.style.cssText='font-size:44px;margin-bottom:16px;';e.textContent='🌶️';
+  var t=document.createElement('div');t.style.cssText='font-size:18px;font-weight:700;margin-bottom:10px;';t.textContent='Actualiza ChilliApp';
+  var m=document.createElement('div');m.style.cssText='font-size:14px;line-height:1.5;max-width:320px;opacity:.85;margin-bottom:24px;';m.textContent=msg;
+  d.appendChild(e);d.appendChild(t);d.appendChild(m);
+  if(url){
+    var b=document.createElement('a');b.href=url;b.target='_blank';b.rel='noopener';b.textContent='Actualizar';
+    b.style.cssText='background:#6366f1;color:#fff;padding:12px 28px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px;';
+    d.appendChild(b);
+  }
+  document.body.appendChild(d);
+}
+async function chwCheckAppVersion(){
+  try{
+    var C=window.Capacitor;
+    if(!C||typeof C.isNativePlatform!=='function'||!C.isNativePlatform())return;
+    var ctl=new AbortController();var tm=setTimeout(function(){ctl.abort();},4000);
+    var r=await fetch('/.netlify/functions/app-config',{signal:ctl.signal});
+    clearTimeout(tm);
+    if(!r.ok)return;
+    var c=await r.json();
+    if(!c||!(Number(c.min_build)>CHW_APP_BUILD))return;
+    var plat=(typeof C.getPlatform==='function'&&C.getPlatform())||'';
+    var url=plat==='ios'?c.ios_url:(plat==='android'?c.android_url:'');
+    chwShowUpdateGate(String(c.update_message||'Hay una versión nueva de ChilliApp. Actualiza para seguir usándola.'),url||'');
+  }catch(e){}
+}
+window.addEventListener('load',function(){setTimeout(chwCheckAppVersion,2000);});
+
 const CHW_DEFAULT_SB_URL='https://ctmyozrhlgbdbxhotrml.supabase.co';
 const CHW_DEFAULT_SB_KEY='sb_publishable_x5RifF5rUbQ4UHdB55ZCgg_xNhSPnO-';
 // Mascota de Chilliwood: Berry Chilli 🐶 — imagen embebida (200x200, optimizada)
@@ -2828,7 +2870,7 @@ async function obGenerate(){
   ].filter(Boolean);
   try{
     if(status)status.textContent='Generando temas personalizados con IA...';
-    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:promptLines.join('\n')})});
+    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:promptLines.join('\n')})});
     var d=await r.json();
     var text=d.content?.[0]?.text||'';
     if(status)status.textContent='Aplicando configuracion...';
@@ -4023,12 +4065,25 @@ async function uploadLogo(file){
   var btnTxt=btn.textContent;
   btn.disabled=true;btn.textContent='Subiendo...';
   try{
-    var ext=(file.name.split('.').pop()||'png').toLowerCase();
-    var path=sbCid+'/logo-'+Date.now()+'.'+ext;
-    var up=await sbClient.storage.from('logos').upload(path,file,{contentType:file.type||'image/png'});
-    if(up.error)throw up.error;
-    var pub=sbClient.storage.from('logos').getPublicUrl(path);
-    cfg.logo=pub.data.publicUrl;
+    // Se sube por el servidor (con tu sesión); así el bucket no tiene que estar abierto a cualquiera.
+    var pubUrl='',srvMsg='';
+    try{
+      var b64=await new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(String(fr.result||''));};fr.onerror=function(){rej(new Error('No se pudo leer el archivo.'));};fr.readAsDataURL(file);});
+      var rs=await fetch('/.netlify/functions/upload-logo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,data:b64})});
+      var dj=await rs.json().catch(function(){return {};});
+      if(dj&&dj.ok&&dj.url){pubUrl=dj.url;}
+      else if(rs.status>=400&&rs.status<500){srvMsg=(dj&&dj.error)||'No se pudo subir el logo.';}
+    }catch(e2){}
+    if(!pubUrl&&srvMsg)throw new Error(srvMsg);
+    if(!pubUrl){
+      // El servidor no respondió bien: se intenta el camino directo de siempre.
+      var ext=(file.name.split('.').pop()||'png').toLowerCase();
+      var path=sbCid+'/logo-'+Date.now()+'.'+ext;
+      var up=await sbClient.storage.from('logos').upload(path,file,{contentType:file.type||'image/png'});
+      if(up.error)throw up.error;
+      pubUrl=sbClient.storage.from('logos').getPublicUrl(path).data.publicUrl;
+    }
+    cfg.logo=pubUrl;
     S.set('chw_cfg',cfg);
     syncAvatar();
     var prev=document.getElementById('marca-logo-preview');
@@ -4768,7 +4823,7 @@ async function genGuion(){
   }
   txt.value='Escribiendo guion...';
   try{
-    const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:mkPrompt(v)})});
+    const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:mkPrompt(v)})});
     const d=await r.json();
     if(!r.ok){txt.value='Error ('+r.status+'): '+(d.error?.message||'')+'\n\n'+sugerenciaError(r.status,false);devolverCupo('guion');logErrorSilencioso('guion','HTTP '+r.status+' '+(d.error?.message||''));return;}
     guion=d.content?.[0]?.text||'Sin respuesta.';
@@ -5148,7 +5203,7 @@ async function regenerarTemas(){
     'Los temas son conceptos para tratar en video, no preguntas. Solo JSON, sin explicaciones.'
   ];
   try{
-    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:promptLines.join('\n')})});
+    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:promptLines.join('\n')})});
     var d=await r.json();
     var text=d.content?.[0]?.text||'';
     var clean=text.replace(/```json/g,'').replace(/```/g,'').trim();
@@ -5467,7 +5522,7 @@ async function generateCopy(v,code,guionTexto){
     'Responde SOLO con el copy, sin explicaciones ni comillas.'
   ].filter(Boolean);
   try{
-    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:parts.join('\n')})});
+    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:parts.join('\n')})});
     var d=await r.json();return d.content?.[0]?.text||'';
   }catch(e){return '';}
 }
@@ -5512,7 +5567,7 @@ async function genGuionSmart(){
   if(!reserva.ok){box.style.display='none';showToast(reserva.error||'No se pudo generar el guion.');return;}
   txt.value='Escribiendo...';
   try{
-    const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:mkPrompt(p)})});
+    const r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:mkPrompt(p)})});
     const d=await r.json();
     const texto=d.content?.[0]?.text;
     if(!texto)devolverCupo('guion');
@@ -5895,7 +5950,7 @@ async function renderYTChannelStats(forceRefresh){
 
   el.innerHTML='<p style="font-size:12px;color:var(--tx2);">Cargando...</p>';
   try{
-    const res=await fetch('/.netlify/functions/youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({handle:creds.handle,action:'channel'})});
+    const res=await fetch('/.netlify/functions/youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,handle:creds.handle,action:'channel'})});
     const d=await res.json();
     // Si cambiaste de negocio mientras esperábamos esta respuesta, esta ya no
     // corresponde a nadie activo — descartarla evita escribir el canal de un
@@ -5929,7 +5984,7 @@ async function renderYTVideos(){
   el.innerHTML='<p style="font-size:12px;color:var(--tx2);margin-bottom:10px;">Cargando videos...</p>';
   const myBiz=sbCid;
   try{
-    const res=await fetch('/.netlify/functions/youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({handle:creds.handle,action:'videos'})});
+    const res=await fetch('/.netlify/functions/youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,handle:creds.handle,action:'videos'})});
     const d=await res.json();
     if(sbCid!==myBiz)return; // cambiaste de negocio mientras esperabas — no mezclar sus videos con el nuevo
     if(!d.success){el.innerHTML='<div class="empty"><div class="ei">❌</div>'+(d.error||'No se pudo cargar')+'</div>';return;}
@@ -6238,7 +6293,7 @@ async function renderSocialStats(plat,forceRefresh){
   if(listEl)listEl.innerHTML='';
   const myBiz=sbCid; // negocio activo cuando arrancó este fetch
   try{
-    const res=await fetch('/.netlify/functions/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({handles:[handle],platform:plat,clientId:sbCid||''})});
+    const res=await fetch('/.netlify/functions/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,handles:[handle],platform:plat,clientId:sbCid||''})});
     const d=await res.json();
     // Igual que en YouTube: si cambiaste de negocio mientras esperabas, esta
     // respuesta ya no corresponde a nadie activo — se descarta.
@@ -6362,7 +6417,7 @@ async function genCarrusel(){
     var prompt=promptLines.filter(Boolean).join('\n');
     var controller=new AbortController();
     killer=setTimeout(function(){controller.abort();},20000);
-    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt}),signal:controller.signal});
+    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:prompt}),signal:controller.signal});
     clearTimeout(killer);killer=null;
     var d=await r.json();
     if(!r.ok){msg.textContent='Error ('+r.status+'): '+(d.error||'desconocido')+' — '+sugerenciaError(r.status,false);msg.style.color='#dc2626';msg.style.display='block';logErrorSilencioso('carrusel','HTTP '+r.status+' '+(d.error||''));return;}
@@ -7019,7 +7074,7 @@ async function extractRefStyleHint(){
     var r=await fetch('/.netlify/functions/guion',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt:prompt,image:{base64:img.base64,mediaType:img.mediaType}})
+      body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:prompt,image:{base64:img.base64,mediaType:img.mediaType}})
     });
     var d=await r.json();
     var text=(d.content&&d.content[0]&&d.content[0].text)||'';
@@ -7035,7 +7090,7 @@ async function genAIImage(visualTopic,tono,negocio,contexto,styleHint){
   var controller=new AbortController();
   var killer=setTimeout(function(){controller.abort();},27000);
   try{
-    var r=await fetch('/.netlify/functions/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,aspect_ratio:'1:1'}),signal:controller.signal});
+    var r=await fetch('/.netlify/functions/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:prompt,aspect_ratio:'1:1'}),signal:controller.signal});
     clearTimeout(killer);
     var d=await r.json();
     if(d.success&&d.imageUrl)return{dataUrl:d.imageUrl};
@@ -7082,7 +7137,7 @@ async function visionWriteSlideText(imgBase64,mediaType,visualTopic,rol,negocio,
     'CUERPO: [largo variable segun se necesite — desde una frase corta hasta 2-3 lineas, espanol chileno]'
   ].filter(Boolean).join('\n');
   try{
-    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,image:{base64:imgBase64,mediaType:mediaType}})});
+    var r=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:prompt,image:{base64:imgBase64,mediaType:mediaType}})});
     var d=await r.json();
     var text=d.content&&d.content[0]&&d.content[0].text||'';
     var tm=text.match(/T[IÍ]TULO[:\s]+([^\n]+)/i);
@@ -7114,7 +7169,7 @@ async function visionAnalyzeLayout(imgBase64,mediaType){
     var r=await fetch('/.netlify/functions/guion',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt:prompt,image:{base64:imgBase64,mediaType:mediaType}})
+      body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:prompt,image:{base64:imgBase64,mediaType:mediaType}})
     });
     var d=await r.json();
     var text=(d.content&&d.content[0]&&d.content[0].text)||'{}';
@@ -7430,7 +7485,7 @@ async function regenSlide(idx){
         '"logo_fondo_color":"nombre de color en inglés o código hex — solo si tipo=diseno, si no null"}'
       ].join('\n');
       try{
-        var rc=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:classifyPrompt})});
+        var rc=await fetch('/.netlify/functions/guion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sbToken,app_build:CHW_APP_BUILD,prompt:classifyPrompt})});
         var dc=await rc.json();
         var ctext=(dc.content&&dc.content[0]&&dc.content[0].text)||'{}';
         var cclean=ctext.replace(/```json|```/g,'').trim();
